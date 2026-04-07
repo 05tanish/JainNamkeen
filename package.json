@@ -1,0 +1,19 @@
+{
+  "name": "ecommerce-monolith",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Modern Monolithic Ecommerce Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "install:all": "npm install",
+    "test": "npm test --workspaces",
+    "build": "npm run build --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
