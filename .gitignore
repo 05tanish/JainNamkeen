@@ -127,7 +127,10 @@ apps/backend/scripts
 apps/backend/scripts/cleanLogs.js
 .vscode
 QUICK_START.md
-
+apps/frontend/src/__tests__/design-tokens.test.js
+apps/frontend/src/test-setup.js
+apps/frontend/src/__tests__/preservation.test.jsx
+apps/frontend/src/__tests__
 # Docker
 .dockerignore
 docker-compose.override.yml
