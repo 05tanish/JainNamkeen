@@ -1,161 +1,167 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { FiTrendingUp, FiArrowRight, FiStar, FiAward, FiHeart, FiTruck } from 'react-icons/fi';
+import { FiArrowRight } from 'react-icons/fi';
 import API from '../../api/axios';
-import { useAuth } from '../../hooks/useAuth';
-import { useCart } from '../../hooks/useCart';
 import './Home.css';
 
 export default function Home() {
     const [featuredProducts, setFeaturedProducts] = useState([]);
-    const [trendingProducts, setTrendingProducts] = useState([]);
     const [categories, setCategories] = useState([]);
-    const { user } = useAuth();
-    const { addToCart } = useCart();
 
     useEffect(() => {
-        API.get('/products?featured=true&limit=8').then(res => setFeaturedProducts(res.data.products));
-        API.get('/products/trending').then(res => setTrendingProducts(res.data));
-        API.get('/categories').then(res => setCategories(res.data));
+        API.get('/products?featured=true&limit=3').then(res => setFeaturedProducts(res.data.products));
+        API.get('/categories').then(res => setCategories(res.data.slice(0, 3)));
     }, []);
-
-    const handleAddToCart = async (productId, e) => {
-        e.preventDefault();
-        if (!user) return window.location.assign('/login');
-        await addToCart(productId);
-    };
-
-    const ProductCard = ({ product }) => (
-        <div className="product-card animate-fadeIn">
-            <Link to={`/product/${product._id}`} style={{ display: 'block' }}>
-                <div className="product-image">
-                    {(product.images && product.images.length > 0) || product.image ? (
-                        <img src={product.images && product.images.length > 0 ? product.images[0].url : (product.image?.startsWith('http') ? product.image : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${product.image}`)} alt={product.name} />
-                    ) : (
-                        <span style={{ filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))' }}>🍿</span>
-                    )}
-                    {product.isFeatured && (
-                        <span style={{
-                            position: 'absolute', top: 12, left: 12, padding: '4px 12px',
-                            background: 'var(--primary)',
-                            borderRadius: 30, fontSize: '0.7rem', fontWeight: 800, color: '#FFF',
-                            textTransform: 'uppercase', letterSpacing: 1, boxShadow: '0 2px 10px rgba(255,122,0,0.4)'
-                        }}><FiStar style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Featured</span>
-                    )}
-                </div>
-                <div className="product-info">
-                    <div className="product-category">{product.category?.name || 'Snacks'}</div>
-                    <div className="product-name">{product.name}</div>
-                    <div className="product-price">₹{product.price}<span className="product-weight">{product.weight}</span></div>
-                </div>
-            </Link>
-            <div className="product-actions">
-                <button className="btn btn-primary" style={{ flex: 1, padding: '10px 0' }} onClick={(e) => handleAddToCart(product._id, e)}>Add to Cart</button>
-            </div>
-        </div>
-    );
 
     return (
         <div className="home">
-            {/* Hero */}
-            <section className="hero">
-                <div className="hero-bg"></div>
-                <div className="container" style={{ display: 'flex', gap: 40, alignItems: 'center' }}>
+            {/* Hero Section */}
+            <section className="hero" style={{
+                background: 'linear-gradient(rgba(44,24,16,0.4), rgba(44,24,16,0.6)), url(https://lh3.googleusercontent.com/aida-public/AB6AXuBbMvGgfBX9vPh8e9ZBNg2EC1QfNpv90yzJezcQgS6bhkoW8Ya7Z6yH2RDP1MHxSVdgkvuT0Jum59HP5_V84SWLqVymS5K4rTy4ZYAkSUh5071lOQB0DDnZ-EeyHQNdTsw0_ZGdQ5r1z6qXMBs2CQ8cnJjaCKFf2Gwq5N74CSTE7es6sFgLSObHTHt1HlHflCBiP3KTCaYuJn9fRkJFlGrnhYKP6wz269_s7INm8adPmaLZSSZuGedQEFNvhQR8erWq0QVlXqFt96s) center/cover',
+                backgroundAttachment: 'fixed'
+            }}>
+                <div className="container">
                     <div className="hero-content">
-                        <div className="hero-badge">🏆 Trusted Heritage of Taste</div>
-                        <h1>Premium Indian <br /><span className="hero-highlight">Namkeen & Sweets</span></h1>
-                        <p>Handcrafted with love, seasoned with tradition. Experience the authentic flavors of India delivered fresh to your doorstep.</p>
+                        <div className="hero-eyebrow">Welcome to Jain</div>
+                        <h1>
+                            Taste the <span className="tradition">Tradition</span> of Udaipur
+                        </h1>
+                        <p>
+                            Take a culinary stroll through the vibrant streets of Udaipur through generations of flavor. Authentic flavors made with care, bringing the royal kitchens to your doorstep.
+                        </p>
                         <div className="hero-actions">
-                            <Link to="/products" className="btn btn-primary">Shop Collection <FiArrowRight /></Link>
-                            <Link to="/about" className="btn btn-secondary">Discover Our Story</Link>
-                        </div>
-                        <div className="hero-stats">
-                            <div className="hero-stat"><strong>50+</strong><span>Exquisite Products</span></div>
-                            <div className="hero-stat"><strong>10K+</strong><span>Happy Connoisseurs</span></div>
-                            <div className="hero-stat"><strong>100%</strong><span>Authentic & Pure</span></div>
+                            <Link to="/products" className="btn btn-primary btn-lg">
+                                Explore Collections
+                            </Link>
+                            <Link to="/about" className="btn btn-secondary btn-lg">
+                                Our Story
+                            </Link>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Categories */}
-            <section className="section container">
-                <div className="section-header">
-                    <div>
-                        <h2>Curated Collections</h2>
-                        <p>Explore our wide range of traditional and contemporary snacks</p>
-                    </div>
-                </div>
-                <div className="categories-grid">
-                    {categories.map(cat => (
-                        <Link to={`/products?category=${cat._id}`} key={cat._id} className="category-card">
-                            <div className="category-emoji">
-                                {cat.name.includes('Namkeen') ? '🥜' : cat.name.includes('Bhujia') ? '🌶️' : cat.name.includes('Chips') ? '🍟' : cat.name.includes('Sweet') ? '🍬' : '🎁'}
-                            </div>
-                            <h3>{cat.name}</h3>
-                            <p>{cat.description || 'Explore our authentic selection'}</p>
-                        </Link>
-                    ))}
-                </div>
-            </section>
-
-            {/* Trending Products */}
-            {trendingProducts.length > 0 && (
-                <section className="section container">
+            {/* Featured Collections */}
+            <section className="featured-section">
+                <div className="container">
                     <div className="section-header">
-                        <div>
-                            <h2><FiTrendingUp style={{ color: 'var(--primary)', verticalAlign: 'middle', marginRight: 12 }} />Trending Now</h2>
-                            <p>Discover what our community is loving right now</p>
-                        </div>
-                        <Link to="/products?sort=popular" className="view-all">View All Collection <FiArrowRight /></Link>
+                        <h2>Featured Collections</h2>
+                        <Link to="/products" className="view-all-link">
+                            View All <FiArrowRight />
+                        </Link>
                     </div>
-                    <div className="grid grid-4">
-                        {trendingProducts.slice(0, 4).map(product => (
-                            <ProductCard key={product._id} product={product} />
-                        ))}
+                    <div className="collections-grid">
+                        {categories.map((cat, idx) => {
+                            // Use namkeen/snacks images from Unsplash
+                            const imageUrls = [
+                                'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=400&fit=crop', // Indian snacks
+                                'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=400&fit=crop', // Traditional Indian food
+                                'https://images.unsplash.com/photo-1596040033229-a0b3b7d1b8b8?w=400&h=400&fit=crop'  // Indian sweets
+                            ];
+                            return (
+                                <Link to={`/products?category=${cat._id}`} key={cat._id} className="collection-card">
+                                    <div className="collection-image">
+                                        <img 
+                                            src={imageUrls[idx] || imageUrls[0]} 
+                                            alt={cat.name}
+                                            onError={(e) => { e.target.src = 'https://via.placeholder.com/400'; }}
+                                        />
+                                    </div>
+                                    <h3>{cat.name}</h3>
+                                    <p>{cat.description || 'Handcrafted with authentic spices and traditional recipes'}</p>
+                                    <span className="collection-link">SHOP NOW</span>
+                                </Link>
+                            );
+                        })}
                     </div>
-                </section>
-            )}
-
-            {/* Featured / Bestsellers */}
-            <section className="section container">
-                <div className="section-header">
-                    <div>
-                        <h2>Signature Bestsellers</h2>
-                        <p>The timeless classics that defined our heritage</p>
-                    </div>
-                    <Link to="/products?featured=true" className="view-all">View All Collection <FiArrowRight /></Link>
-                </div>
-                <div className="grid grid-4">
-                    {featuredProducts.map(product => (
-                        <ProductCard key={product._id} product={product} />
-                    ))}
                 </div>
             </section>
 
-            {/* Why Choose Us */}
-            <section className="section container" style={{ marginBottom: 40 }}>
-                <div className="section-header" style={{ textAlign: 'center', justifyContent: 'center', marginBottom: 60 }}>
-                    <div>
-                        <h2>The Sangam Promise</h2>
-                        <p>What makes our namkeen the favorite across India</p>
+            {/* Heritage Story */}
+            <section className="heritage-section">
+                <div className="container">
+                    <div className="heritage-content">
+                        <div className="heritage-images">
+                            <div className="heritage-image" style={{ transform: 'translateY(32px)' }}>
+                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNP5QtPWZqGNZDE0CR4yvjrhUlCArz-jJXEj-BNi5GC20-r6Zzx7KS4eMGIXd2IjwNmp1-MFwp7gdZ3qQjE2HHb6_AJd1QhFEafxgOfGLHWtDNPwBW3JZ12Enr8oeabpP-bHCRvL40aONR0HwER02LnF4_00VQ5PZ4WWKx7_JYDBRrcAP8pf3BqFdofEeQbEh36yBSkZVZKgbb9e-zPPSxj_hVtX1Nb9uqq1kOmHldP7J0QqWZes3RpB5eOb2Q-g9VWJuwDsvJpQI" alt="Traditional Udaipur market stall" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
+                            </div>
+                            <div className="heritage-image">
+                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF__oFAC0_srHFBlgfbDeF_500CV7RQVvX1WMIZWGRkszsFUJdpHanyWaO3740UuEHpF-L1iIh7sWJZmRqCf85Xgol3cBVFUzDuM5HW70q-Qzz9oN0aRChnGL-14_1dRHVp6kcqUg23zS-B_xZlByP7dhWbvzM1XKrYt35iemTqmj1RyHvyiTQcQK9WGAps82GyukNJlzyelOokfWD8lme-4qswC6IDVzkhEKHw6R8kjSeonYwcZ0TMuDezNw5OgDJsFF9GCpRbfg" alt="Rajasthani palace carvings" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
+                            </div>
+                        </div>
+                        <div className="heritage-text">
+                            <h3>Our Story</h3>
+                            <h2>The Heritage of Udaipur</h2>
+                            <p>
+                                Founded on the shores of Lake Pichola in 1948, Jain Namkeen is built on a rich legacy of authentic Indian flavors. Every product is a testament to our commitment to quality and tradition.
+                            </p>
+                            <p>
+                                From sourcing the finest ingredients to following time-honored recipes, we ensure that every bite transports you to the royal kitchens of Rajasthan. Our family's secret recipes have been passed down through generations.
+                            </p>
+                            <p>
+                                Today, we're proud to share our heritage with families across India, maintaining the same standards of excellence that our founders established over seven decades ago.
+                            </p>
+                            <div className="heritage-stats">
+                                <div className="stat-item">
+                                    <span className="stat-number">70+</span>
+                                    <span className="stat-label">Years of Legacy</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-number">100%</span>
+                                    <span className="stat-label">Authentic Recipes</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-number">50k+</span>
+                                    <span className="stat-label">Happy Families</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div className="grid grid-3">
-                    <div className="feature-card">
-                        <div className="feature-icon"><FiAward /></div>
-                        <h3>100% Natural</h3>
-                        <p>Made with pure ingredients, authentic spices, and zero artificial flavors. Only the best for our patrons.</p>
-                    </div>
-                    <div className="feature-card">
-                        <div className="feature-icon"><FiHeart /></div>
-                        <h3>Crafted Daily</h3>
-                        <p>Our artisans prepare products fresh every day with love, care, and generations of expertise.</p>
-                    </div>
-                    <div className="feature-card">
-                        <div className="feature-icon"><FiTruck /></div>
-                        <h3>Express Delivery</h3>
-                        <p>Quick, safe, and pristine delivery right to your doorstep, ensuring maximum freshness across India.</p>
+            </section>
+
+            {/* Testimonials */}
+            <section className="testimonials-section">
+                <div className="container">
+                    <h2>Voices of Appreciation</h2>
+                    <p className="subtitle">What our customers say about us</p>
+                    <div className="testimonials-grid">
+                        <div className="testimonial-card">
+                            <p className="testimonial-text">
+                                "The flavors are incredibly fresh and authentic. It takes me back to my childhood in Rajasthan. The quality is unmatched and the packaging keeps everything fresh."
+                            </p>
+                            <div className="testimonial-author">
+                                <div className="author-avatar">SM</div>
+                                <div className="author-info">
+                                    <h4>Sukhit Mishra</h4>
+                                    <p>Delhi, India</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="testimonial-card">
+                            <p className="testimonial-text">
+                                "I ordered the Mewari Sweets for a special occasion and everyone loved them. The taste is exactly like what you get in Udaipur. Highly recommend!"
+                            </p>
+                            <div className="testimonial-author">
+                                <div className="author-avatar">DM</div>
+                                <div className="author-info">
+                                    <h4>Divya Mishra</h4>
+                                    <p>Mumbai, India</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="testimonial-card">
+                            <p className="testimonial-text">
+                                "The Mewari Namkeen and sweets are simply the best. You can taste the quality in every bite. This is now my go-to for all festive occasions."
+                            </p>
+                            <div className="testimonial-author">
+                                <div className="author-avatar">VM</div>
+                                <div className="author-info">
+                                    <h4>Varun Mehta</h4>
+                                    <p>Bangalore, India</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

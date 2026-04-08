@@ -130,8 +130,8 @@ export default function Products() {
     return (
         <div className="page container">
             <div className="page-header" style={{
-                background: 'linear-gradient(135deg, rgba(255, 122, 0, 0.06), transparent)',
-                padding: '40px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255, 122, 0, 0.15)',
+                background: 'var(--surface-container)',
+                padding: '40px', borderRadius: 'var(--radius-lg)',
                 marginBottom: '40px'
             }}>
                 <h1 style={{ color: 'var(--text-primary)' }}>Our Collection</h1>
@@ -161,7 +161,7 @@ export default function Products() {
                     {showSuggestions && (
                         <div style={{
                             position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 100,
-                            background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(20px)',
+                            background: 'var(--surface-container-lowest)', backdropFilter: 'blur(20px)',
                             border: '1px solid var(--border)',
                             borderRadius: 'var(--radius)',
                             boxShadow: '0 10px 30px rgba(0,0,0,0.1)', overflow: 'hidden'
@@ -177,7 +177,7 @@ export default function Products() {
                                         transition: 'all 0.3s ease'
                                     }}
                                     onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(255, 122, 0, 0.06)';
+                                        e.currentTarget.style.background = 'var(--primary-glow)';
                                         e.currentTarget.style.paddingLeft = '24px';
                                     }}
                                     onMouseLeave={e => {
@@ -415,7 +415,7 @@ export default function Products() {
                                             position: 'absolute', top: 12, left: 12, padding: '4px 12px',
                                             background: 'var(--primary)',
                                             borderRadius: 30, fontSize: '0.7rem', fontWeight: 800, color: '#FFF',
-                                            textTransform: 'uppercase', letterSpacing: 1, boxShadow: '0 2px 10px rgba(255,122,0,0.4)'
+                                            textTransform: 'uppercase', letterSpacing: 1, boxShadow: '0 2px 10px rgba(160,65,0,0.4)'
                                         }}><FiStar style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Featured</span>
                                     )}
                                     {product.totalSold > 200 && (
@@ -439,8 +439,8 @@ export default function Products() {
                                                     onClick={(e) => { e.preventDefault(); updateFilter('tag', tag); }}
                                                     style={{
                                                         fontSize: '0.7rem', padding: '4px 10px', borderRadius: 20,
-                                                        background: 'rgba(255, 122, 0, 0.08)', color: 'var(--primary)',
-                                                        cursor: 'pointer', textTransform: 'capitalize', border: '1px solid rgba(255, 122, 0, 0.15)'
+                                                        background: 'var(--primary-glow)', color: 'var(--primary)',
+                                                        cursor: 'pointer', textTransform: 'capitalize', border: '1px solid rgba(160,65,0,0.15)'
                                                     }}
                                                 >#{tag}</span>
                                             ))}

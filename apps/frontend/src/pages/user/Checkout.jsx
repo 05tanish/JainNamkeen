@@ -162,12 +162,12 @@ export default function Checkout() {
 
                     <div className="card" style={{ padding: 24, marginBottom: 24 }}>
                         <h3 style={{ marginBottom: 16 }}>Payment Method</h3>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', marginBottom: 8, background: form.paymentMethod === 'cod' ? 'rgba(232,117,26,0.06)' : 'transparent' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', marginBottom: 8, background: form.paymentMethod === 'cod' ? 'var(--primary-glow)' : 'transparent' }}>
                             <input type="radio" name="payment" value="cod" checked={form.paymentMethod === 'cod'}
                                 onChange={() => setForm({ ...form, paymentMethod: 'cod' })} />
                             <span>💵 Cash on Delivery (COD)</span>
                         </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: form.paymentMethod === 'online' ? 'rgba(232,117,26,0.06)' : 'transparent' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', background: form.paymentMethod === 'online' ? 'var(--primary-glow)' : 'transparent' }}>
                             <input type="radio" name="payment" value="online" checked={form.paymentMethod === 'online'}
                                 onChange={() => setForm({ ...form, paymentMethod: 'online' })} />
                             <span>💳 Online Payment (Coming Soon)</span>
@@ -186,7 +186,7 @@ export default function Checkout() {
                     {items.map(item => (
                         <div key={item.product?._id || item._id} style={{
                             display: 'flex', justifyContent: 'space-between', marginBottom: 10,
-                            fontSize: '0.88rem', paddingBottom: 8, borderBottom: '1px solid var(--border)'
+                            fontSize: '0.88rem', paddingBottom: 8
                         }}>
                             <span>{item.product?.name} × {item.quantity}</span>
                             <span style={{ fontWeight: 600 }}>₹{(item.product?.price || 0) * item.quantity}</span>
@@ -206,7 +206,7 @@ export default function Checkout() {
                         <span>Delivery</span>
                         <span>{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</span>
                     </div>
-                    <hr style={{ border: '0', borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+                    <hr style={{ border: '0', borderTop: '1px solid var(--outline-variant)', margin: '16px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem' }}>
                         <span>Total</span>
                         <span style={{ color: 'var(--primary-light)' }}>₹{total.toFixed(2)}</span>
@@ -240,7 +240,7 @@ export default function Checkout() {
                                     {activeCoupons.map(c => (
                                         <span key={c._id} 
                                             onClick={() => setCouponCode(c.code)}
-                                            style={{ fontSize: '0.75rem', padding: '4px 8px', background: 'var(--bg-input)', border: '1px dashed var(--primary-light)', borderRadius: 4, cursor: 'pointer', color: 'var(--primary)' }}>
+                                            style={{ fontSize: '0.75rem', padding: '4px 8px', background: 'var(--surface-container-highest)', border: '1px dashed var(--primary-light)', borderRadius: 4, cursor: 'pointer', color: 'var(--primary)' }}>
                                             {c.code}
                                         </span>
                                     ))}

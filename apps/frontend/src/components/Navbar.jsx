@@ -1,8 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiUser, FiMenu, FiX, FiLogOut, FiGrid, FiShoppingBag, FiBell } from 'react-icons/fi';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { FiShoppingCart, FiUser, FiMenu, FiX, FiLogOut, FiGrid, FiShoppingBag, FiBell, FiPackage } from 'react-icons/fi';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import API from '../api/axios';
 import './Navbar.css';
 
@@ -10,21 +10,31 @@ export default function Navbar() {
     const { user, logout } = useAuth();
     const { cartCount } = useCart();
     const navigate = useNavigate();
+    const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [showNotif, setShowNotif] = useState(false);
+    const notifRef = useRef(null);
 
     useEffect(() => {
         if (user) {
-            API.get('/notifications/user').then(res => setNotifications(res.data)).catch(() => { });
+            API.get('/notifications/user').then(r => setNotifications(r.data)).catch(() => {});
         }
     }, [user]);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
-        setMobileOpen(false);
-    };
+    // Close notif dropdown on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Close mobile menu on route change
+    useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+    const handleLogout = () => { logout(); navigate('/'); };
 
     const getDashboardLink = () => {
         if (!user) return '/login';
@@ -33,99 +43,136 @@ export default function Navbar() {
         return '/my-orders';
     };
 
+    const isActive = (path) => location.pathname === path ? 'active-link' : '';
+
+    const initials = user?.name
+        ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        : '?';
+
     return (
-        <nav className="navbar glass">
+        <nav className="navbar">
             <div className="container navbar-inner">
+                {/* Brand */}
                 <Link to="/" className="navbar-brand">
                     <span className="brand-icon">🍿</span>
-                    <span className="brand-text">Sangam <span className="brand-highlight">Namkeen</span></span>
+                    <span className="brand-text">Jain <span className="brand-highlight">Namkeen</span></span>
                 </Link>
 
+                {/* Nav links */}
                 <div className={`navbar-links ${mobileOpen ? 'open' : ''}`}>
-                    <Link to="/" onClick={() => setMobileOpen(false)}>Home</Link>
-                    <Link to="/products" onClick={() => setMobileOpen(false)}>Products</Link>
-                    <Link to="/offers" onClick={() => setMobileOpen(false)}>Offers & Coupons</Link>
-                    <Link to="/pages/about-us" onClick={() => setMobileOpen(false)}>About</Link>
+                    <Link to="/" className={isActive('/')}>Home</Link>
+                    <Link to="/products" className={isActive('/products')}>Products</Link>
+                    <Link to="/offers" className={isActive('/offers')}>Offers</Link>
+                    <Link to="/about" className={isActive('/about')}>About</Link>
 
-                    <Link to="/profile" onClick={() => setMobileOpen(false)} className="mobile-only">
-                        Profile
-                    </Link>
+                    {/* Mobile-only extras */}
                     {user && (
-                        <Link to={getDashboardLink()} onClick={() => setMobileOpen(false)} className="mobile-only">
-                            {user.role === 'admin' ? 'Admin Panel' : user.role === 'staff' ? 'Staff Panel' : 'My Orders'}
-                        </Link>
+                        <>
+                            <Link to="/profile" className="mobile-only">Profile</Link>
+                            <Link to={getDashboardLink()} className="mobile-only">
+                                {user.role === 'admin' ? 'Admin Panel' : user.role === 'staff' ? 'Staff Panel' : 'My Orders'}
+                            </Link>
+                            <button
+                                className="mobile-only"
+                                onClick={handleLogout}
+                                style={{ background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: '1rem', padding: '13px 18px', textAlign: 'left', borderRadius: 'var(--radius-sm)' }}
+                            >
+                                Logout
+                            </button>
+                        </>
                     )}
-
-                    {user ? (
-                        <button className="mobile-only logout-link" onClick={handleLogout}>Logout</button>
-                    ) : (
-                        <Link to="/login" onClick={() => setMobileOpen(false)} className="mobile-only">Login</Link>
+                    {!user && (
+                        <Link to="/login" className="mobile-only">Login</Link>
                     )}
                 </div>
 
+                {/* Actions */}
                 <div className="navbar-actions">
+                    {/* Notifications */}
                     {user && (
-                        <div style={{ position: 'relative' }}>
-                            <button className="cart-btn" onClick={() => setShowNotif(!showNotif)} title="Notifications" style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative' }}>
-                                <FiBell size={20} />
-                                {notifications.length > 0 && <span className="cart-badge">{notifications.length}</span>}
+                        <div style={{ position: 'relative' }} ref={notifRef}>
+                            <button
+                                className="nav-icon-btn"
+                                onClick={() => setShowNotif(v => !v)}
+                                title="Notifications"
+                            >
+                                <FiBell size={18} />
+                                {notifications.length > 0 && (
+                                    <span className="nav-badge">{notifications.length > 9 ? '9+' : notifications.length}</span>
+                                )}
                             </button>
+
                             {showNotif && (
-                                <div className="card animate-fadeIn" style={{ position: 'absolute', top: '100%', right: 0, width: 300, padding: '16px 0', zIndex: 100, marginTop: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', marginBottom: 12, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
-                                        <h4 style={{ margin: 0 }}>Notifications</h4>
+                                <div className="notif-dropdown">
+                                    <div className="notif-header">
+                                        <h4>Notifications</h4>
                                         {notifications.length > 0 && (
                                             <button
                                                 onClick={() => {
                                                     API.put('/notifications/user/read-all')
                                                         .then(() => setNotifications([]))
-                                                        .catch(err => console.error(err));
+                                                        .catch(() => {});
                                                 }}
-                                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.85rem' }}
+                                                style={{ background: 'none', color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
                                             >
-                                                Read All
+                                                Mark all read
                                             </button>
                                         )}
                                     </div>
-                                    <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                                        {notifications.map(n => (
-                                            <div key={n._id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)' }}>
-                                                <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--primary)', marginBottom: 4 }}>{n.title}</strong>
-                                                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{n.body}</span>
-                                                <small style={{ display: 'block', marginTop: 8, color: 'var(--text-muted)' }}>{new Date(n.sentAt).toLocaleDateString()}</small>
+                                    <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                                        {notifications.length === 0 ? (
+                                            <div className="notif-empty">
+                                                <FiBell size={28} style={{ margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
+                                                No new notifications
+                                            </div>
+                                        ) : notifications.map(n => (
+                                            <div key={n._id} className="notif-item">
+                                                <div className="notif-title">{n.title}</div>
+                                                <div className="notif-body">{n.body}</div>
+                                                <div className="notif-time">{new Date(n.sentAt).toLocaleDateString()}</div>
                                             </div>
                                         ))}
-                                        {notifications.length === 0 && <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No new notifications</div>}
                                     </div>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {user && user.role === 'user' && (
-                        <Link to="/cart" className="cart-btn" title="Cart">
-                            <FiShoppingCart />
-                            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+                    {/* Cart */}
+                    {user?.role === 'user' && (
+                        <Link to="/cart" className="nav-icon-btn" title="Cart">
+                            <FiShoppingCart size={18} />
+                            {cartCount > 0 && <span className="nav-badge">{cartCount > 9 ? '9+' : cartCount}</span>}
                         </Link>
                     )}
 
-                    {user ? (
-                        <div className="user-menu">
-                            <Link to="/profile" className="user-btn" title="Profile">
-                                <FiUser />
-                            </Link>
-                            <Link to={getDashboardLink()} className="user-btn" title={user.role === 'admin' ? 'Dashboard' : 'My Orders'}>
-                                {user.role === 'admin' ? <FiMenu /> : user.role === 'staff' ? <FiGrid /> : <FiShoppingBag />}
-                            </Link>
-                            <button className="btn btn-sm btn-secondary desktop-only" onClick={handleLogout}>
-                                <FiLogOut size={14} /> Logout
-                            </button>
-                        </div>
-                    ) : (
-                        <Link to="/login" className="btn btn-sm btn-primary">Login</Link>
+                    {/* Dashboard shortcut */}
+                    {user && (
+                        <Link to={getDashboardLink()} className="nav-icon-btn desktop-only" title="Dashboard">
+                            {user.role === 'admin' ? <FiGrid size={18} /> : user.role === 'staff' ? <FiPackage size={18} /> : <FiShoppingBag size={18} />}
+                        </Link>
                     )}
 
-                    <button className="mobile-toggle" onClick={() => setMobileOpen(!mobileOpen)}>
+                    {/* User avatar / login */}
+                    {user ? (
+                        <>
+                            <Link to="/profile" title="Profile" className="desktop-only">
+                                <div className="user-avatar-btn">{initials}</div>
+                            </Link>
+                            <button
+                                className="btn btn-sm btn-ghost desktop-only"
+                                onClick={handleLogout}
+                                style={{ gap: 6 }}
+                            >
+                                <FiLogOut size={14} /> Logout
+                            </button>
+                        </>
+                    ) : (
+                        <Link to="/login" className="btn btn-sm btn-primary desktop-only">Login</Link>
+                    )}
+
+                    {/* Mobile toggle */}
+                    <button className="mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle menu">
                         {mobileOpen ? <FiX /> : <FiMenu />}
                     </button>
                 </div>

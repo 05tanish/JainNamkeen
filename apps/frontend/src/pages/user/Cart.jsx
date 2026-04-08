@@ -64,8 +64,8 @@ export default function Cart() {
                                     style={{ borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}
                                 >−</button>
                                 <span style={{
-                                    padding: '6px 14px', border: '1px solid var(--border)',
-                                    fontWeight: 600, fontSize: '0.9rem', background: 'var(--bg-surface)'
+                                    padding: '6px 14px',
+                                    fontWeight: 600, fontSize: '0.9rem', background: 'var(--surface-container)'
                                 }}>{item.quantity}</span>
                                 <button
                                     className="btn btn-secondary btn-sm"
@@ -96,7 +96,7 @@ export default function Cart() {
                         <span>Delivery</span>
                         <span>{cartTotal >= 500 ? 'FREE' : '₹40'}</span>
                     </div>
-                    <hr style={{ border: '0', borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+                    <hr style={{ border: '0', borderTop: '1px solid var(--outline-variant)', margin: '16px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem', marginBottom: 24 }}>
                         <span>Total</span>
                         <span style={{ color: 'var(--primary-light)' }}>₹{cartTotal + (cartTotal >= 500 ? 0 : 40)}</span>
