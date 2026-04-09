@@ -3,7 +3,7 @@ import Product from '../products/product.model.js';
 
 export const createOrder = async (req, res) => {
     try {
-        const { items, totalAmount, shippingAddress, paymentMethod } = req.body;
+        const { items, totalAmount, shippingAddress, paymentMethod, couponCode } = req.body;
         
         // Validate items array
         if (!items || items.length === 0) {
@@ -11,7 +11,7 @@ export const createOrder = async (req, res) => {
         }
         
         // Validate all products exist and calculate actual total
-        let calculatedTotal = 0;
+        let calculatedSubtotal = 0;
         for (const item of items) {
             if (!item.product || !item.product.match(/^[0-9a-fA-F]{24}$/)) {
                 return res.status(400).json({ message: 'Invalid product ID in order items' });
@@ -28,15 +28,49 @@ export const createOrder = async (req, res) => {
                 return res.status(400).json({ message: `Insufficient stock for ${product.name}` });
             }
             
-            calculatedTotal += product.price * item.quantity;
+            calculatedSubtotal += product.price * item.quantity;
         }
         
-        // Validate totalAmount matches calculated total (allow 1% variance for rounding)
-        if (Math.abs(totalAmount - calculatedTotal) > calculatedTotal * 0.01) {
+        // Calculate delivery charge (free delivery for orders >= 500)
+        const deliveryCharge = calculatedSubtotal >= 500 ? 0 : 40;
+        
+        // Calculate discount if coupon is applied
+        let discount = 0;
+        if (couponCode) {
+            const Coupon = (await import('../coupons/coupon.model.js')).default;
+            const coupon = await Coupon.findOne({ 
+                code: couponCode.toUpperCase(), 
+                isActive: true,
+                validUntil: { $gte: new Date() }
+            });
+            
+            if (coupon && calculatedSubtotal >= (coupon.minOrderAmount || 0)) {
+                if (coupon.discountType === 'fixed') {
+                    discount = coupon.discountValue;
+                } else if (coupon.discountType === 'percentage') {
+                    discount = (calculatedSubtotal * coupon.discountValue) / 100;
+                    if (coupon.maxDiscount) {
+                        discount = Math.min(discount, coupon.maxDiscount);
+                    }
+                }
+            }
+        }
+        
+        // Calculate expected total
+        const calculatedTotal = Math.max(0, calculatedSubtotal + deliveryCharge - discount);
+        
+        // Validate totalAmount matches calculated total (allow small rounding difference)
+        if (Math.abs(totalAmount - calculatedTotal) > 1) {
             return res.status(400).json({ 
                 message: 'Total amount mismatch',
                 expected: calculatedTotal,
-                received: totalAmount
+                received: totalAmount,
+                breakdown: {
+                    subtotal: calculatedSubtotal,
+                    deliveryCharge,
+                    discount,
+                    total: calculatedTotal
+                }
             });
         }
         
@@ -50,7 +84,7 @@ export const createOrder = async (req, res) => {
         const order = new Order({
             user: req.user._id,
             items,
-            totalAmount,
+            totalAmount: calculatedTotal, // Use calculated total to ensure accuracy
             shippingAddress,
             paymentMethod
         });

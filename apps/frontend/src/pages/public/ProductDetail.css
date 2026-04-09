@@ -1,0 +1,415 @@
+/* Product Detail Responsive Styles */
+
+.product-hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: start;
+}
+
+.product-image-main {
+    aspect-ratio: 1/1;
+    background: var(--surface-container-low);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    margin-bottom: 24px;
+}
+
+.product-thumbnails {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.product-title {
+    font-family: var(--font-heading);
+    font-size: 3.5rem;
+    margin-bottom: 16px;
+    line-height: 1.1;
+    color: var(--text-primary);
+    font-weight: 900;
+}
+
+.product-price {
+    font-size: 3rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.product-price-original {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.product-description {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1.8;
+    max-width: 600px;
+}
+
+.product-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.product-features {
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+/* Details Bento Grid */
+.details-bento {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+.culinary-notes-card {
+    background: var(--surface-container-low);
+    padding: 48px;
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.card-label {
+    color: var(--primary);
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.card-title {
+    font-family: var(--font-heading);
+    font-size: 2rem;
+    margin-bottom: 24px;
+    font-weight: 700;
+}
+
+.card-description {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    font-size: 1.05rem;
+    margin-bottom: 32px;
+}
+
+.product-specs {
+    display: flex;
+    gap: 32px;
+}
+
+.spec-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.spec-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 2px;
+    opacity: 0.6;
+}
+
+.spec-divider {
+    width: 1px;
+    background: var(--border);
+}
+
+.ingredients-card {
+    background: var(--primary);
+    padding: 48px;
+    border-radius: var(--radius-xl);
+    color: #fff;
+}
+
+.ingredients-title {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    margin-bottom: 24px;
+    font-weight: 700;
+}
+
+.ingredients-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-weight: 500;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ingredients-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Heritage Image */
+.heritage-image-container {
+    height: 400px;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    position: relative;
+}
+
+.heritage-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.heritage-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 48px;
+}
+
+.heritage-title {
+    font-family: var(--font-heading);
+    font-size: 2.5rem;
+    color: #fff;
+    font-weight: 700;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+.heritage-description {
+    color: rgba(255,255,255,0.8);
+    max-width: 600px;
+}
+
+/* Reviews Section */
+.reviews-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 64px;
+}
+
+.reviews-title {
+    font-family: var(--font-heading);
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 16px;
+}
+
+.reviews-subtitle {
+    color: var(--text-secondary);
+    max-width: 500px;
+}
+
+.reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+}
+
+.review-card {
+    padding: 32px;
+    background: var(--surface-container-low);
+    border-radius: var(--radius-xl);
+    position: relative;
+}
+
+.review-comment {
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    font-style: italic;
+    line-height: 1.7;
+}
+
+.review-author {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.author-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.author-badge {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+}
+
+.review-actions {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .product-hero-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+    }
+    
+    .details-bento {
+        grid-template-columns: 1fr;
+    }
+    
+    .reviews-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .product-title {
+        font-size: 2.5rem;
+    }
+    
+    .product-price {
+        font-size: 2.5rem;
+    }
+    
+    .heritage-title {
+        font-size: 2rem;
+    }
+    
+    .reviews-title {
+        font-size: 2rem;
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .product-image-main {
+        padding: 24px;
+    }
+    
+    .product-thumbnails {
+        gap: 8px;
+    }
+    
+    .product-title {
+        font-size: 2rem;
+    }
+    
+    .product-price {
+        font-size: 2rem;
+    }
+    
+    .product-price-original {
+        font-size: 1.2rem;
+    }
+    
+    .product-description {
+        font-size: 1rem;
+    }
+    
+    .product-actions {
+        flex-direction: column;
+    }
+    
+    .product-features {
+        grid-template-columns: 1fr;
+    }
+    
+    .reviews-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .reviews-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 24px;
+    }
+    
+    .culinary-notes-card,
+    .ingredients-card {
+        padding: 32px 24px;
+    }
+    
+    .card-title {
+        font-size: 1.5rem;
+    }
+    
+    .card-description {
+        font-size: 1rem;
+    }
+    
+    .product-specs {
+        gap: 16px;
+    }
+    
+    .spec-value {
+        font-size: 1.2rem;
+    }
+    
+    .heritage-image-container {
+        height: 300px;
+    }
+    
+    .heritage-overlay {
+        padding: 24px;
+    }
+    
+    .heritage-title {
+        font-size: 1.5rem;
+    }
+    
+    .heritage-description {
+        font-size: 0.9rem;
+    }
+    
+    .reviews-title {
+        font-size: 1.8rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .product-hero-grid {
+        gap: 32px;
+    }
+    
+    .product-title {
+        font-size: 1.75rem;
+    }
+    
+    .product-price {
+        font-size: 1.75rem;
+    }
+}
+

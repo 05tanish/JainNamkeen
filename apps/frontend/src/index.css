@@ -403,7 +403,115 @@ tr:hover td { background: var(--surface-container); color: var(--on-surface); }
 .empty-state h3 { font-family: var(--font-heading); font-size: 1.7rem; margin-bottom: 10px; }
 .empty-state p  { color: var(--on-surface-variant); margin-bottom: 28px; }
 
-/* ─── Panel layout ─── */
+/* ─── Responsive Typography ─── */
+@media (max-width: 768px) {
+  :root {
+    font-size: 15px; /* Slightly smaller base font on mobile */
+  }
+  
+  h1, .page-header h1 {
+    font-size: 2rem !important;
+  }
+  
+  h2 {
+    font-size: 1.5rem !important;
+  }
+  
+  h3 {
+    font-size: 1.25rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    font-size: 14px;
+  }
+  
+  .container {
+    padding: 0 16px;
+  }
+  
+  .page {
+    padding: 36px 0;
+  }
+  
+  .btn {
+    padding: 11px 20px;
+    font-size: 0.9rem;
+  }
+  
+  .btn-lg {
+    padding: 14px 32px;
+    font-size: 1rem;
+  }
+}
+
+/* ─── Responsive Tables ─── */
+@media (max-width: 768px) {
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  table {
+    min-width: 600px;
+  }
+  
+  th, td {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ─── Responsive Cards ─── */
+@media (max-width: 768px) {
+  .card {
+    padding: 20px;
+  }
+  
+  .stat-card {
+    padding: 18px 20px;
+  }
+  
+  .stat-card .stat-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+  
+  .stat-card .stat-info h3 {
+    font-size: 1.5rem;
+  }
+}
+
+/* ─── Responsive Modals ─── */
+@media (max-width: 768px) {
+  .modal {
+    padding: 24px;
+    max-width: calc(100vw - 32px);
+  }
+  
+  .modal h2, .modal h3 {
+    font-size: 1.4rem;
+  }
+}
+
+/* ─── Responsive Empty States ─── */
+@media (max-width: 768px) {
+  .empty-state {
+    padding: 48px 20px;
+  }
+  
+  .empty-state .icon {
+    font-size: 3rem;
+  }
+  
+  .empty-state h3 {
+    font-size: 1.4rem;
+  }
+}
+
+/* ─── Responsive Panel Layout ─── */
 .panel-layout { display: flex; min-height: calc(100vh - 80px); }
 
 .panel-sidebar {
@@ -440,7 +548,8 @@ tr:hover td { background: var(--surface-container); color: var(--on-surface); }
   overflow-x: hidden; background: var(--surface-container);
 }
 
-@media (max-width: 768px) {
+/* Only apply horizontal layout on very small mobile screens */
+@media (max-width: 480px) {
   .panel-layout { flex-direction: column; }
   .panel-sidebar {
     width: 100%; height: auto; position: relative; top: 0;
@@ -545,6 +654,46 @@ tr:hover td { background: var(--surface-container); color: var(--on-surface); }
 
 /* ─── Misc ─── */
 tr[data-suspended="true"] td { opacity: 0.45; }
+
+/* ─── Touch-friendly Mobile Improvements ─── */
+@media (max-width: 768px) {
+  /* Larger tap targets for mobile */
+  button, .btn, a.btn {
+    min-height: 44px;
+  }
+  
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+  
+  /* Better spacing for touch */
+  .product-card .product-actions {
+    padding: 0 16px 16px;
+  }
+  
+  /* Prevent text selection on buttons */
+  button, .btn {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  
+  /* Smooth scrolling for mobile */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ─── Landscape Mobile Adjustments ─── */
+@media (max-width: 900px) and (orientation: landscape) {
+  .page {
+    padding: 24px 0;
+  }
+  
+  .page-header {
+    margin-bottom: 24px;
+  }
+}
 
 /* ─── Divider ─── */
 .divider {

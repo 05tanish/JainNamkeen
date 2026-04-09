@@ -1,0 +1,48 @@
+/* Products Page Responsive Styles */
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    /* Search and filter bar */
+    .page > .container > div:first-of-type {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    /* Search input container */
+    .page > .container > div:first-of-type > div:first-child {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+    }
+    
+    /* Sort dropdown */
+    .page > .container > div:first-of-type > div:nth-child(2) select {
+        min-width: 100% !important;
+    }
+    
+    /* Filter button */
+    .page > .container > div:first-of-type > button {
+        width: 100%;
+    }
+    
+    /* Filter panel grid */
+    .page > .container > div:nth-child(3) > div:last-child {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Product grid - already handled by global .grid-4 styles */
+}
+
+@media (max-width: 480px) {
+    /* Page header */
+    .page-header {
+        padding: 24px !important;
+    }
+    
+    .page-header h1 {
+        font-size: 1.8rem !important;
+    }
+    
+    .page-header p {
+        font-size: 1rem !important;
+    }
+}

@@ -4,6 +4,7 @@ import { FiShoppingCart, FiArrowLeft, FiStar, FiEdit, FiTrash2, FiCheck, FiMapPi
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
+import './ProductDetail.css';
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -149,20 +150,10 @@ export default function ProductDetail() {
 
             {/* Product Hero Section */}
             <section className="container" style={{ paddingBottom: 80 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'start' }}>
+                <div className="product-hero-grid">
                     {/* Image Gallery */}
                     <div>
-                        <div style={{
-                            aspectRatio: '1/1',
-                            background: 'var(--surface-container-low)',
-                            borderRadius: 'var(--radius-lg)',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 48,
-                            marginBottom: 24
-                        }}>
+                        <div className="product-image-main">
                             {mainImage ? (
                                 <img src={mainImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))' }} />
                             ) : (
@@ -172,7 +163,7 @@ export default function ProductDetail() {
                         
                         {/* Thumbnails */}
                         {product.images && product.images.length > 1 && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                            <div className="product-thumbnails">
                                 {product.images.map((img, idx) => (
                                     <div 
                                         key={idx}
@@ -216,10 +207,8 @@ export default function ProductDetail() {
 
                         {/* Title & Rating */}
                         <div>
-                            <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '3.5rem', marginBottom: 16, lineHeight: 1.1, color: 'var(--text-primary)', fontWeight: 900 }}>
-                                {product.name}
-                            </h1>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <h1 className="product-title">{product.name}</h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', gap: 4, color: 'var(--accent)' }}>
                                     {[1, 2, 3, 4, 5].map(star => (
                                         <FiStar key={star} fill={star <= stats.averageRating ? 'var(--accent)' : 'none'} size={20} />
@@ -232,15 +221,11 @@ export default function ProductDetail() {
                         </div>
 
                         {/* Price */}
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-                            <span style={{ fontSize: '3rem', fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'var(--primary)' }}>
-                                ₹{product.price}
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
+                            <span className="product-price">₹{product.price}</span>
                             {product.originalPrice && product.originalPrice > product.price && (
                                 <>
-                                    <span style={{ fontSize: '1.5rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                                        ₹{product.originalPrice}
-                                    </span>
+                                    <span className="product-price-original">₹{product.originalPrice}</span>
                                     <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '1.1rem' }}>
                                         {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
                                     </span>
@@ -250,9 +235,7 @@ export default function ProductDetail() {
 
                         {/* Description */}
                         {product.description && (
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', lineHeight: 1.8, maxWidth: '600px' }}>
-                                {product.description}
-                            </p>
+                            <p className="product-description">{product.description}</p>
                         )}
 
                         {/* Weight Selection */}
@@ -260,7 +243,7 @@ export default function ProductDetail() {
                             <label style={{ display: 'block', marginBottom: 12, fontWeight: 700, fontSize: '0.85rem', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
                                 Select Weight
                             </label>
-                            <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                                 {weightOptions.map(weight => (
                                     <button
                                         key={weight}
@@ -284,7 +267,7 @@ export default function ProductDetail() {
 
                         {/* Add to Cart */}
                         {product.stock > 0 && (
-                            <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+                            <div className="product-actions">
                                 <button
                                     className="btn btn-primary"
                                     onClick={handleAddToCart}
@@ -315,14 +298,7 @@ export default function ProductDetail() {
                         )}
 
                         {/* Features */}
-                        <div style={{
-                            marginTop: 32,
-                            paddingTop: 32,
-                            borderTop: '1px solid var(--border)',
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: 16
-                        }}>
+                        <div className="product-features">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <FiCheck style={{ color: 'var(--primary)', fontSize: '1.5rem' }} />
                                 <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>100% Vegetarian</span>
@@ -346,97 +322,57 @@ export default function ProductDetail() {
 
             {/* Details Bento Grid */}
             <section className="container" style={{ paddingBottom: 80 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, marginBottom: 32 }}>
+                <div className="details-bento">
                     {/* Culinary Notes */}
-                    <div style={{
-                        background: 'var(--surface-container-low)',
-                        padding: 48,
-                        borderRadius: 'var(--radius-xl)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center'
-                    }}>
-                        <span style={{
-                            color: 'var(--primary)',
-                            fontWeight: 700,
-                            letterSpacing: '3px',
-                            textTransform: 'uppercase',
-                            fontSize: '0.75rem',
-                            marginBottom: 16
-                        }}>
+                    <div className="culinary-notes-card">
+                        <span className="card-label">
                             The Experience
                         </span>
-                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '2rem', marginBottom: 24, fontWeight: 700 }}>
+                        <h2 className="card-title">
                             Culinary Notes
                         </h2>
-                        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '1.05rem', marginBottom: 32 }}>
+                        <p className="card-description">
                             Experience the authentic taste of Udaipur with every bite. Crafted using traditional methods passed down through generations, this product delivers a perfect balance of flavors and textures that will transport you to the royal kitchens of Rajasthan.
                         </p>
-                        <div style={{ display: 'flex', gap: 32 }}>
+                        <div className="product-specs">
                             <div>
-                                <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>Medium</span>
-                                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '2px', opacity: 0.6 }}>Spice Level</span>
+                                <span className="spec-value">Medium</span>
+                                <span className="spec-label">Spice Level</span>
                             </div>
-                            <div style={{ width: 1, background: 'var(--border)' }}></div>
+                            <div className="spec-divider"></div>
                             <div>
-                                <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>Extra-Crisp</span>
-                                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '2px', opacity: 0.6 }}>Texture</span>
+                                <span className="spec-value">Extra-Crisp</span>
+                                <span className="spec-label">Texture</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Heritage Ingredients */}
-                    <div style={{
-                        background: 'var(--primary)',
-                        padding: 48,
-                        borderRadius: 'var(--radius-xl)',
-                        color: '#fff'
-                    }}>
-                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', marginBottom: 24, fontWeight: 700 }}>
+                    <div className="ingredients-card">
+                        <h2 className="ingredients-title">
                             Heritage Ingredients
                         </h2>
-                        <ul style={{ display: 'flex', flexDirection: 'column', gap: 16, fontWeight: 500 }}>
-                            <li style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <FiCheck size={20} /> Premium Gram Flour
-                            </li>
-                            <li style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <FiCheck size={20} /> Cold-Pressed Oil
-                            </li>
-                            <li style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <FiCheck size={20} /> Authentic Spices
-                            </li>
-                            <li style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <FiCheck size={20} /> Hand-mined Salt
-                            </li>
+                        <ul className="ingredients-list">
+                            <li><FiCheck size={20} /> Premium Gram Flour</li>
+                            <li><FiCheck size={20} /> Cold-Pressed Oil</li>
+                            <li><FiCheck size={20} /> Authentic Spices</li>
+                            <li><FiCheck size={20} /> Hand-mined Salt</li>
                         </ul>
                     </div>
                 </div>
 
                 {/* Heritage Image */}
-                <div style={{
-                    height: 400,
-                    borderRadius: 'var(--radius-xl)',
-                    overflow: 'hidden',
-                    position: 'relative'
-                }}>
+                <div className="heritage-image-container">
                     <img 
                         src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWp7hMcsN2rZFeI8uERn3fgW5OHrH7Ta-aOPt0m8qDaeD0z6K9582VH6JHdBFtkTa4BuZQqMHFspqsFprvfR1H9aDP8p1YuJ66-QTP06-kTv0o04_1bugeR53gPYIwjOJFm_t4_WTNRyaNcri_If3wjTau2A7YfgFChTo95MUdEfGDqRjytUTIUHKgsLUpwymT-Rol73TjwJcmA1-cdW9clKcMj0kEOiTO0p7PZySLAPX3s5xyBGOxNt1WazuNIfkmRh5UbkDVsek" 
                         alt="Heritage" 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        className="heritage-image"
                     />
-                    <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'flex-end',
-                        padding: 48
-                    }}>
-                        <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '2.5rem', color: '#fff', fontWeight: 700, marginBottom: 8, fontStyle: 'italic' }}>
+                    <div className="heritage-overlay">
+                        <h3 className="heritage-title">
                             Crafted with Heritage.
                         </h3>
-                        <p style={{ color: 'rgba(255,255,255,0.8)', maxWidth: 600 }}>
+                        <p className="heritage-description">
                             Every product is a tribute to the royal kitchens of Udaipur, where flavors were treated as art forms.
                         </p>
                     </div>
@@ -446,12 +382,12 @@ export default function ProductDetail() {
             {/* Customer Reviews */}
             <section style={{ background: 'var(--surface-container-lowest)', padding: '80px 0' }}>
                 <div className="container">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 64 }}>
+                    <div className="reviews-header">
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '2.5rem', fontWeight: 900, marginBottom: 16 }}>
+                            <h2 className="reviews-title">
                                 Voice of the Pavilion
                             </h2>
-                            <p style={{ color: 'var(--text-secondary)', maxWidth: 500 }}>
+                            <p className="reviews-subtitle">
                                 Our customers from across the globe share their experiences with the authentic taste of Rajasthan.
                             </p>
                         </div>
@@ -519,45 +455,30 @@ export default function ProductDetail() {
                         </form>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
+                    <div className="reviews-grid">
                         {reviews.slice(0, 3).map(review => (
-                            <div key={review._id} style={{
-                                padding: 32,
-                                background: 'var(--surface-container-low)',
-                                borderRadius: 'var(--radius-xl)',
-                                position: 'relative'
-                            }}>
+                            <div key={review._id} className="review-card">
                                 <div style={{ display: 'flex', gap: 4, color: 'var(--accent)', marginBottom: 16 }}>
                                     {[1, 2, 3, 4, 5].map(star => (
                                         <FiStar key={star} fill={star <= review.rating ? 'var(--accent)' : 'none'} />
                                     ))}
                                 </div>
-                                <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontStyle: 'italic', lineHeight: 1.7 }}>
+                                <p className="review-comment">
                                     "{review.comment}"
                                 </p>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                    <div style={{
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: '50%',
-                                        background: 'var(--primary)',
-                                        color: '#fff',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontWeight: 700
-                                    }}>
+                                <div className="review-author">
+                                    <div className="author-avatar">
                                         {review.user?.name?.charAt(0) || 'A'}
                                     </div>
                                     <div>
-                                        <h4 style={{ fontWeight: 700, fontSize: '0.9rem' }}>{review.user?.name || 'Anonymous'}</h4>
-                                        <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--text-muted)' }}>
+                                        <h4 className="author-name">{review.user?.name || 'Anonymous'}</h4>
+                                        <span className="author-badge">
                                             Verified Buyer
                                         </span>
                                     </div>
                                 </div>
                                 {user && (user._id === review.user?._id || user.role === 'admin') && (
-                                    <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
+                                    <div className="review-actions">
                                         {user._id === review.user?._id && (
                                             <button className="btn btn-secondary btn-sm" onClick={() => {
                                                 setReviewForm({ rating: review.rating, comment: review.comment, images: null, existingImages: review.images });

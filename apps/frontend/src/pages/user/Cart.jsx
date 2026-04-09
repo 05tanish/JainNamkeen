@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FiTrash2, FiShoppingBag } from 'react-icons/fi';
 import { useCart } from '../../hooks/useCart';
+import './Cart.css';
 
 export default function Cart() {
     const { items, cartTotal, updateQuantity, removeFromCart, loading } = useCart();
@@ -33,31 +34,24 @@ export default function Cart() {
                 <p>{items.length} item{items.length !== 1 ? 's' : ''} in your cart</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 32, alignItems: 'start' }}>
+            <div className="cart-layout">
                 {/* Cart Items */}
                 <div>
                     {items.map(item => (
-                        <div key={item.product?._id || item._id} className="card" style={{
-                            display: 'flex', gap: 16, padding: 20, marginBottom: 12, alignItems: 'center'
-                        }}>
-                            <div style={{
-                                width: 80, height: 80, borderRadius: 'var(--radius-sm)',
-                                background: 'var(--bg-surface)', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center',
-                                fontSize: '2rem', overflow: 'hidden', flexShrink: 0
-                            }}>
+                        <div key={item.product?._id || item._id} className="card cart-item">
+                            <div className="cart-item-image">
                                 {(item.product?.images && item.product.images.length > 0) || item.product?.image ? (
                                     <img src={item.product?.images && item.product.images.length > 0 ? item.product.images[0].url : (item.product?.image?.startsWith('http') ? item.product.image : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${item.product?.image}`)} alt={item.product?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : '🍿'}
                             </div>
 
-                            <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="cart-item-info">
                                 <h4 style={{ marginBottom: 4 }}>{item.product?.name || 'Product'}</h4>
                                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{item.product?.weight}</p>
                                 <p style={{ fontWeight: 700, color: 'var(--primary-light)' }}>₹{item.product?.price || 0}</p>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                            <div className="cart-item-quantity">
                                 <button
                                     className="btn btn-secondary btn-sm"
                                     onClick={() => updateQuantity(item.product?._id, item.quantity - 1)}
@@ -74,7 +68,7 @@ export default function Cart() {
                                 >+</button>
                             </div>
 
-                            <div style={{ textAlign: 'right', minWidth: 80 }}>
+                            <div className="cart-item-total">
                                 <p style={{ fontWeight: 700, marginBottom: 4 }}>₹{(item.product?.price || 0) * item.quantity}</p>
                                 <button
                                     onClick={() => removeFromCart(item.product?._id)}
@@ -86,7 +80,7 @@ export default function Cart() {
                 </div>
 
                 {/* Order Summary */}
-                <div className="card" style={{ padding: 24, position: 'sticky', top: 100 }}>
+                <div className="card cart-summary-card" style={{ padding: 24 }}>
                     <h3 style={{ marginBottom: 20 }}>Order Summary</h3>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: '0.9rem' }}>
                         <span>Subtotal ({items.length} items)</span>

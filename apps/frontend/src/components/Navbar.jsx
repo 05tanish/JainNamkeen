@@ -14,7 +14,9 @@ export default function Navbar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [showNotif, setShowNotif] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const notifRef = useRef(null);
+    const profileRef = useRef(null);
 
     useEffect(() => {
         if (user) {
@@ -26,6 +28,7 @@ export default function Navbar() {
     useEffect(() => {
         const handler = (e) => {
             if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false);
+            if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfile(false);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
@@ -34,7 +37,11 @@ export default function Navbar() {
     // Close mobile menu on route change
     useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
-    const handleLogout = () => { logout(); navigate('/'); };
+    const handleLogout = () => { 
+        setShowProfile(false);
+        logout(); 
+        navigate('/'); 
+    };
 
     const getDashboardLink = () => {
         if (!user) return '/login';
@@ -65,22 +72,7 @@ export default function Navbar() {
                     <Link to="/offers" className={isActive('/offers')}>Offers</Link>
                     <Link to="/about" className={isActive('/about')}>About</Link>
 
-                    {/* Mobile-only extras */}
-                    {user && (
-                        <>
-                            <Link to="/profile" className="mobile-only">Profile</Link>
-                            <Link to={getDashboardLink()} className="mobile-only">
-                                {user.role === 'admin' ? 'Admin Panel' : user.role === 'staff' ? 'Staff Panel' : 'My Orders'}
-                            </Link>
-                            <button
-                                className="mobile-only"
-                                onClick={handleLogout}
-                                style={{ background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: '1rem', padding: '13px 18px', textAlign: 'left', borderRadius: 'var(--radius-sm)' }}
-                            >
-                                Logout
-                            </button>
-                        </>
-                    )}
+                    {/* Mobile-only login */}
                     {!user && (
                         <Link to="/login" className="mobile-only">Login</Link>
                     )}
@@ -93,7 +85,10 @@ export default function Navbar() {
                         <div style={{ position: 'relative' }} ref={notifRef}>
                             <button
                                 className="nav-icon-btn"
-                                onClick={() => setShowNotif(v => !v)}
+                                onClick={() => {
+                                    setShowNotif(v => !v);
+                                    setShowProfile(false); // Close profile when opening notifications
+                                }}
                                 title="Notifications"
                             >
                                 <FiBell size={18} />
@@ -148,31 +143,76 @@ export default function Navbar() {
 
                     {/* Dashboard shortcut */}
                     {user && (
-                        <Link to={getDashboardLink()} className="nav-icon-btn desktop-only" title="Dashboard">
+                        <Link to={getDashboardLink()} className="nav-icon-btn" title="Dashboard">
                             {user.role === 'admin' ? <FiGrid size={18} /> : user.role === 'staff' ? <FiPackage size={18} /> : <FiShoppingBag size={18} />}
                         </Link>
                     )}
 
-                    {/* User avatar / login */}
+                    {/* User Profile Dropdown / Login */}
                     {user ? (
-                        <>
-                            <Link to="/profile" title="Profile" className="desktop-only">
-                                <div className="user-avatar-btn">{initials}</div>
-                            </Link>
+                        <div style={{ position: 'relative' }} ref={profileRef}>
                             <button
-                                className="btn btn-sm btn-ghost desktop-only"
-                                onClick={handleLogout}
-                                style={{ gap: 6 }}
+                                className="user-avatar-btn"
+                                onClick={() => {
+                                    setShowProfile(v => !v);
+                                    setShowNotif(false); // Close notifications when opening profile
+                                }}
+                                title="Profile"
                             >
-                                <FiLogOut size={14} /> Logout
+                                {initials}
                             </button>
-                        </>
+
+                            {showProfile && (
+                                <div className="profile-dropdown">
+                                    <div className="profile-dropdown-header">
+                                        <div className="profile-dropdown-avatar">{initials}</div>
+                                        <div>
+                                            <div className="profile-dropdown-name">{user.name}</div>
+                                            <div className="profile-dropdown-email">{user.email}</div>
+                                        </div>
+                                    </div>
+                                    <div className="profile-dropdown-divider"></div>
+                                    <Link 
+                                        to="/profile" 
+                                        className="profile-dropdown-item"
+                                        onClick={() => setShowProfile(false)}
+                                    >
+                                        <FiUser size={16} />
+                                        <span>My Profile</span>
+                                    </Link>
+                                    <Link 
+                                        to={getDashboardLink()} 
+                                        className="profile-dropdown-item"
+                                        onClick={() => setShowProfile(false)}
+                                    >
+                                        {user.role === 'admin' ? <FiGrid size={16} /> : user.role === 'staff' ? <FiPackage size={16} /> : <FiShoppingBag size={16} />}
+                                        <span>{user.role === 'admin' ? 'Admin Panel' : user.role === 'staff' ? 'Staff Panel' : 'My Orders'}</span>
+                                    </Link>
+                                    <div className="profile-dropdown-divider"></div>
+                                    <button 
+                                        className="profile-dropdown-item profile-dropdown-logout"
+                                        onClick={handleLogout}
+                                    >
+                                        <FiLogOut size={16} />
+                                        <span>Logout</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     ) : (
-                        <Link to="/login" className="btn btn-sm btn-primary desktop-only">Login</Link>
+                        <Link to="/login" className="btn btn-sm btn-primary">Login</Link>
                     )}
 
                     {/* Mobile toggle */}
-                    <button className="mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle menu">
+                    <button 
+                        className="mobile-toggle" 
+                        onClick={() => {
+                            setMobileOpen(v => !v);
+                            setShowNotif(false); // Close dropdowns when opening mobile menu
+                            setShowProfile(false);
+                        }} 
+                        aria-label="Toggle menu"
+                    >
                         {mobileOpen ? <FiX /> : <FiMenu />}
                     </button>
                 </div>

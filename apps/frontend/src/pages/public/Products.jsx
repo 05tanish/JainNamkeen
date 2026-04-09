@@ -4,6 +4,7 @@ import { FiSearch, FiFilter, FiX, FiChevronDown, FiTrendingUp, FiClock, FiStar }
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
+import './Products.css';
 
 const SORT_OPTIONS = [
     { value: 'newest', label: 'Newest First' },

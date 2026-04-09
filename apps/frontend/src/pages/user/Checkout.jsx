@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API from '../../api/axios';
 import { useCart } from '../../hooks/useCart';
+import './Checkout.css';
 
 export default function Checkout() {
     const navigate = useNavigate();
@@ -87,6 +88,7 @@ export default function Checkout() {
                     pincode: form.pincode
                 },
                 paymentMethod: form.paymentMethod,
+                couponCode: appliedCoupon?.code || null
             };
 
             await API.post('/orders', orderData);
@@ -120,7 +122,7 @@ export default function Checkout() {
 
             {error && <div className="alert alert-danger" style={{ marginBottom: 24 }}>{error}</div>}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 32, alignItems: 'start' }}>
+            <div className="checkout-layout">
                 <form onSubmit={handleSubmit}>
                     <div className="card" style={{ padding: 24, marginBottom: 24 }}>
                         <h3 style={{ marginBottom: 20 }}>Shipping Address</h3>
@@ -181,7 +183,7 @@ export default function Checkout() {
                 </form>
 
                 {/* Order Summary */}
-                <div className="card" style={{ padding: 24, position: 'sticky', top: 100 }}>
+                <div className="card order-summary-card" style={{ padding: 24 }}>
                     <h3 style={{ marginBottom: 20 }}>Order Summary</h3>
                     {items.map(item => (
                         <div key={item.product?._id || item._id} style={{

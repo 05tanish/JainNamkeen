@@ -1,0 +1,49 @@
+/* Checkout Page Responsive Styles */
+
+.checkout-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 32px;
+    align-items: start;
+}
+
+.order-summary-card {
+    position: sticky;
+    top: 100px;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .checkout-layout {
+        grid-template-columns: 1fr 300px;
+        gap: 24px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .checkout-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .order-summary-card {
+        position: static;
+        order: -1; /* Show summary first on mobile */
+    }
+    
+    /* Stack form grids */
+    .grid-2,
+    .grid-3 {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .checkout-layout {
+        gap: 16px;
+    }
+    
+    .card {
+        padding: 16px !important;
+    }
+}
