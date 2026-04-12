@@ -36,6 +36,6 @@ const notificationSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { versionKey: false }, toObject: { versionKey: false } });
 
 export default mongoose.model('Notification', notificationSchema);

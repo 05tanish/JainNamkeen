@@ -2,21 +2,36 @@ import { z } from 'zod';
 
 export const productSchema = z.object({
     name: z.string().min(1, 'Product name is required').trim(),
-    description: z.string().min(1, 'Product description is required').trim(),
-    price: z.coerce.number().min(0, 'Price must be a positive number'),
-    stock: z.coerce.number().min(0, 'Stock cannot be negative'),
-    category: z.string().min(24, 'Invalid Category ID').max(24), // Expecting 24-char MongoDB ObjectId
-    images: z.array(z.object({
-        url: z.string().url(),
-        public_id: z.string()
-    })).optional().default([]),
-    brand: z.string().optional().default(''),
-    weight: z.string().optional().default(''),
-    tags: z.array(z.string()).optional().default([]),
+    description: z.string().trim().default(''),
+    price: z.coerce.number().min(0, 'Price must be >= 0'),
+    costPrice: z.coerce.number().min(0).default(0),
+    stock: z.coerce.number().int().min(0, 'Stock cannot be negative').default(0),
+    category: z
+        .string()
+        .length(24, 'Category must be a valid 24-character MongoDB ObjectId'),
+    images: z
+        .array(z.object({ url: z.string().url(), public_id: z.string() }))
+        .optional()
+        .default([]),
+    brand: z.string().trim().optional().default('Sangam Namkeen'),
+    weight: z.string().trim().optional().default('250g'),
+    tags: z.union([
+        z.array(z.string().trim().toLowerCase()),
+        // Accept comma-separated string from FormData
+        z.string().transform(s =>
+            s.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+        ),
+    ]).optional().default([]),
     isFeatured: z.boolean().optional().default(false),
-    lowStockThreshold: z.coerce.number().optional().default(10),
-    isActive: z.boolean().optional().default(true)
+    isActive: z.boolean().optional().default(true),
+    lowStockThreshold: z.coerce.number().int().min(0).optional().default(10),
+    flashSalePrice: z.coerce.number().min(0).nullable().optional().default(null),
+    flashSaleEnd: z
+        .preprocess(arg => {
+            if (!arg) return null;
+            if (typeof arg === 'string' || arg instanceof Date) return new Date(arg);
+        }, z.date().nullable().optional().default(null)),
 });
 
-// For update, we want some fields to be optional
+// For update requests all fields are optional
 export const updateProductSchema = productSchema.partial();

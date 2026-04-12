@@ -6,9 +6,14 @@ const API = axios.create({
     withCredentials: true
 });
 
-// Handle 401 responses
+// Handle successful responses instantly stripping the standard ApiResponse envelope
 API.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (response.data && response.data.success !== undefined && response.data.data !== undefined) {
+            response.data = response.data.data;
+        }
+        return response;
+    },
     (error) => {
         const message = error.response?.data?.message || 'Something went wrong';
         if (error.response?.status === 401) {

@@ -1,38 +1,35 @@
+import ApiError from '../utils/ApiError.js';
+
 /**
- * Reusable Zod validation middleware
- * @param {import('zod').ZodSchema} schema - The Zod schema to validate against
- * @param {string} source - Where to find the data in req (body, query, params). Default is 'body'.
+ * Zod schema validation middleware.
+ * Validates req[source] against the provided Zod schema.
+ * On failure, passes a formatted ApiError to next() so the
+ * global errorMiddleware handles the response consistently.
+ *
+ * @param {import('zod').ZodSchema} schema
+ * @param {'body'|'query'|'params'} source
  */
 const validate = (schema, source = 'body') => (req, res, next) => {
-    try {
-        const data = req[source];
-        const validatedData = schema.parse(data);
-        
-        // Replace original request data with validated/transformed data
-        if (source === 'body') {
-            req.body = validatedData;
-        } else {
-            // Express 5 req.query and req.params are getters, so we must mutate instead of reassign
-            Object.keys(req[source]).forEach(key => delete req[source][key]);
-            Object.assign(req[source], validatedData);
-        }
-        
-        next();
-    } catch (error) {
-        if (error.errors && Array.isArray(error.errors)) {
-            // Zod error structure
-            return res.status(400).json({
-                message: 'Validation failed',
-                errors: error.errors.map(err => ({
-                    path: err.path.join('.'),
-                    message: err.message
-                }))
-            });
-        }
-        
-        // Unexpected error
-        return res.status(500).json({ message: error.message || 'Internal Server Error' });
+    const result = schema.safeParse(req[source]);
+
+    if (!result.success) {
+        const errors = result.error.errors.map(err => ({
+            path: err.path.join('.') || source,
+            message: err.message,
+        }));
+        return next(new ApiError(400, 'Validation failed', errors));
     }
+
+    // Replace the source data with the validated + coerced data
+    if (source === 'body') {
+        req.body = result.data;
+    } else {
+        // Express 5: req.query and req.params are frozen getters — mutate in place
+        Object.keys(req[source]).forEach(key => delete req[source][key]);
+        Object.assign(req[source], result.data);
+    }
+
+    next();
 };
 
 export default validate;

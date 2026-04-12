@@ -1,25 +1,32 @@
-import jwt from 'jsonwebtoken';
 import User from '../modules/users/user.model.js';
+import { extractToken } from '../utils/TokenHelper.js';
+import { verifyToken } from '../utils/JWT.js';
+import ApiError from '../utils/ApiError.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
-const auth = async (req, res, next) => {
-    try {
-        const token = req.cookies.token || req.header('Authorization')?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ message: 'No token, authorization denied' });
-        }
+/**
+ * Authentication middleware.
+ * - Extracts JWT from Authorization header or cookie
+ * - Verifies signature and expiry
+ * - Loads user from DB and attaches to req.user
+ * - Blocks deactivated AND suspended users
+ */
+const auth = asyncHandler(async (req, res, next) => {
+    const token = extractToken(req);
+    const decoded = verifyToken(token);
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-
-        if (!user || !user.isActive) {
-            return res.status(401).json({ message: 'Token is not valid' });
-        }
-
-        req.user = user;
-        next();
-    } catch (error) {
-        res.status(401).json({ message: 'Token is not valid' });
+    const user = await User.findById(decoded.id).select('+isSuspended +suspendReason');
+    if (!user) throw new ApiError(401, 'User no longer exists');
+    if (!user.isActive) throw new ApiError(401, 'Your account has been deactivated. Contact support.');
+    if (user.isSuspended) {
+        throw new ApiError(
+            403,
+            `Your account has been suspended. Reason: ${user.suspendReason || 'No reason provided'}. Contact support.`
+        );
     }
-};
+
+    req.user = user;
+    next();
+});
 
 export default auth;

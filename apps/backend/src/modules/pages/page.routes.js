@@ -1,6 +1,6 @@
 import express from 'express';
 import auth from '../../middleware/auth.js';
-import role from '../../middleware/role.js';
+import { role } from '../../middleware/role.js';
 import validate from '../../middleware/validate.js';
 import { pageSchema } from './page.schema.js';
 import { createPage, getPages, getPageBySlug, updatePage, deletePage } from './page.controller.js';

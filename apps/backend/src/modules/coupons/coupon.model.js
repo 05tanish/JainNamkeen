@@ -46,6 +46,6 @@ const couponSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     }
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { versionKey: false }, toObject: { versionKey: false } });
 
 export default mongoose.model('Coupon', couponSchema);

@@ -20,6 +20,6 @@ const cartSchema = new mongoose.Schema({
             default: 1
         }
     }]
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { versionKey: false }, toObject: { versionKey: false } });
 
 export default mongoose.model('Cart', cartSchema);

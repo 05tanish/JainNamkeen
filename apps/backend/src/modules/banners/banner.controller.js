@@ -1,64 +1,33 @@
-import Banner from './banner.model.js';
+import asyncHandler from '../../utils/asyncHandler.js';
+import { successResponse } from '../../utils/ApiResponse.js';
+import BannerService from './banner.service.js';
 
 // POST /api/banners
-export const createBanner = async (req, res) => {
-    try {
-        const banner = new Banner(req.body);
-        if (req.file) banner.image = `/uploads/${req.file.filename}`;
-        await banner.save();
-        res.status(201).json(banner);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+export const createBanner = asyncHandler(async (req, res) => {
+    const banner = await BannerService.createBanner(req.body, req.file);
+    successResponse(res, { statusCode: 201, data: banner, message: 'Banner created' });
+});
 
 // GET /api/banners
-export const getBanners = async (req, res) => {
-    try {
-        const { position, active } = req.query;
-        const query = {};
-        if (position) query.position = position;
-        if (active !== undefined) query.isActive = active === 'true';
-        const banners = await Banner.find(query).sort({ createdAt: -1 });
-        res.json(banners);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+export const getBanners = asyncHandler(async (req, res) => {
+    const banners = await BannerService.getBanners(req.query);
+    successResponse(res, { statusCode: 200, data: banners, message: 'Banners fetched' });
+});
 
 // PUT /api/banners/:id
-export const updateBanner = async (req, res) => {
-    try {
-        const updates = { ...req.body };
-        if (req.file) updates.image = `/uploads/${req.file.filename}`;
-        const banner = await Banner.findByIdAndUpdate(req.params.id, updates, { new: true });
-        if (!banner) return res.status(404).json({ message: 'Banner not found' });
-        res.json(banner);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+export const updateBanner = asyncHandler(async (req, res) => {
+    const banner = await BannerService.updateBanner(req.params.id, req.body, req.file);
+    successResponse(res, { statusCode: 200, data: banner, message: 'Banner updated' });
+});
 
 // DELETE /api/banners/:id
-export const deleteBanner = async (req, res) => {
-    try {
-        const banner = await Banner.findByIdAndDelete(req.params.id);
-        if (!banner) return res.status(404).json({ message: 'Banner not found' });
-        res.json({ message: 'Banner deleted' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+export const deleteBanner = asyncHandler(async (req, res) => {
+    await BannerService.deleteBanner(req.params.id);
+    successResponse(res, { statusCode: 200, data: null, message: 'Banner deleted' });
+});
 
 // PUT /api/banners/:id/toggle
-export const toggleBannerStatus = async (req, res) => {
-    try {
-        const banner = await Banner.findById(req.params.id);
-        if (!banner) return res.status(404).json({ message: 'Banner not found' });
-        banner.isActive = !banner.isActive;
-        await banner.save();
-        res.json(banner);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+export const toggleBannerStatus = asyncHandler(async (req, res) => {
+    const banner = await BannerService.toggleBannerStatus(req.params.id);
+    successResponse(res, { statusCode: 200, data: banner, message: `Banner ${banner.isActive ? 'activated' : 'deactivated'}` });
+});

@@ -1,47 +1,99 @@
+import ApiError from '../utils/ApiError.js';
 import logger from '../utils/logger.js';
 
 /**
  * Centralized error handling middleware.
- * Formats errors consistently and handles specific error types (Mongoose, JWT, etc.).
+ * Recognises ApiError instances and normalises Mongoose/JWT errors into a
+ * consistent JSON envelope: { success, statusCode, message, errors }.
  */
 const errorMiddleware = (err, req, res, next) => {
-    let error = { ...err };
-    error.message = err.message;
+    // Log every error with request context
+    logger.logError(err, req);
 
-    // Log to winston
-    logger.error(`${err.name}: ${err.message}`, { stack: err.stack });
+    // ── Already a known operational ApiError ──────────────────────────────────
+    if (err instanceof ApiError) {
+        return res.status(err.statusCode).json({
+            success: false,
+            statusCode: err.statusCode,
+            message: err.message,
+            errors: err.errors,
+        });
+    }
 
-
-    // Mongoose bad ObjectId
+    // ── Mongoose: bad ObjectId ────────────────────────────────────────────────
     if (err.name === 'CastError') {
-        const message = `Resource not found with id of ${err.value}`;
-        return res.status(404).json({ success: false, message });
+        return res.status(400).json({
+            success: false,
+            statusCode: 400,
+            message: `Invalid ID: ${err.value}`,
+            errors: [],
+        });
     }
 
-    // Mongoose duplicate key
+    // ── Mongoose: duplicate key ───────────────────────────────────────────────
     if (err.code === 11000) {
-        const message = 'Duplicate field value entered';
-        return res.status(400).json({ success: false, message });
+        const field = Object.keys(err.keyValue || {})[0] || 'field';
+        const value = err.keyValue?.[field];
+        return res.status(409).json({
+            success: false,
+            statusCode: 409,
+            message: `Duplicate value: ${field} '${value}' already exists`,
+            errors: [],
+        });
     }
 
-    // Mongoose validation error
+    // ── Mongoose: validation error ────────────────────────────────────────────
     if (err.name === 'ValidationError') {
-        const message = Object.values(err.errors).map(val => val.message).join(', ');
-        return res.status(400).json({ success: false, message });
+        const errors = Object.values(err.errors).map((e) => e.message);
+        return res.status(400).json({
+            success: false,
+            statusCode: 400,
+            message: 'Validation failed',
+            errors,
+        });
     }
 
-    // JWT errors
+    // ── JWT errors ────────────────────────────────────────────────────────────
     if (err.name === 'JsonWebTokenError') {
-        return res.status(401).json({ success: false, message: 'Invalid token' });
+        return res.status(401).json({
+            success: false,
+            statusCode: 401,
+            message: 'Invalid token',
+            errors: [],
+        });
     }
     if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({ success: false, message: 'Token expired' });
+        return res.status(401).json({
+            success: false,
+            statusCode: 401,
+            message: 'Token expired, please log in again',
+            errors: [],
+        });
     }
 
-    // Default 500 error
-    res.status(error.statusCode || 500).json({
+    // ── CORS error ────────────────────────────────────────────────────────────
+    if (err.message && err.message.includes('Not allowed by CORS')) {
+        return res.status(403).json({
+            success: false,
+            statusCode: 403,
+            message: 'CORS: origin not allowed',
+            errors: [],
+        });
+    }
+
+    // ── Default 500 ───────────────────────────────────────────────────────────
+    const statusCode = err.statusCode || err.status || 500;
+    const message =
+        process.env.NODE_ENV === 'production'
+            ? 'An unexpected error occurred'
+            : err.message || 'Internal Server Error';
+
+    return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Server Error'
+        statusCode,
+        message,
+        errors: [],
+        ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
     });
 };
 

@@ -83,6 +83,7 @@ tmp/
 temp/
 *.tmp
 .temp/
+BUGS.md
 
 # Database
 *.sqlite
@@ -131,6 +132,9 @@ apps/frontend/src/__tests__/design-tokens.test.js
 apps/frontend/src/test-setup.js
 apps/frontend/src/__tests__/preservation.test.jsx
 apps/frontend/src/__tests__
+BUGS.md
+BUGS_FIXED copy.md
+BUGS_FIXED.md
 # Docker
 .dockerignore
 docker-compose.override.yml

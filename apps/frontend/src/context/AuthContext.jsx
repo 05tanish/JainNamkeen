@@ -14,7 +14,8 @@ function authReducer(state, action) {
         case 'AUTH_START':
             return { ...state, loading: true, error: null };
         case 'AUTH_SUCCESS':
-            return { ...state, loading: false, user: action.payload.user, error: null };
+            // The global axios interceptor already unwrapped the user object
+            return { ...state, loading: false, user: action.payload, error: null };
         case 'AUTH_ERROR':
             return { ...state, loading: false, error: action.payload };
         case 'LOGOUT':
@@ -41,7 +42,7 @@ function AuthProvider({ children }) {
         const verifySession = async () => {
             try {
                 const { data } = await API.get('/auth/me');
-                // Cookie is valid — sync user state with fresh server data
+                // Cookie is valid — sync user state with fresh server data (unwrapped by interceptor)
                 dispatch({ type: 'SET_USER', payload: data });
                 localStorage.setItem('user', JSON.stringify(data));
             } catch {

@@ -1,6 +1,6 @@
 import express from 'express';
 import auth from '../../middleware/auth.js';
-import role from '../../middleware/role.js';
+import { role } from '../../middleware/role.js';
 import { uploadCloudinary } from '../../config/cloudinary.js';
 import validate from '../../middleware/validate.js';
 import { productSchema, updateProductSchema } from './product.schema.js';

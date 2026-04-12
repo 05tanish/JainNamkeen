@@ -24,7 +24,7 @@ const attendanceSchema = new mongoose.Schema({
         type: String,
         default: ''
     }
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { versionKey: false }, toObject: { versionKey: false } });
 
 // Prevent duplicate attendance for same user on same day
 attendanceSchema.index({ user: 1, date: 1 }, { unique: true });

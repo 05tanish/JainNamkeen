@@ -35,6 +35,6 @@ const bannerSchema = new mongoose.Schema({
         type: Date,
         default: null
     }
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { versionKey: false }, toObject: { versionKey: false } });
 
 export default mongoose.model('Banner', bannerSchema);

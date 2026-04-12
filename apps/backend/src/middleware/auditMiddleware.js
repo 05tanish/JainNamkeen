@@ -2,63 +2,60 @@ import { createAuditLog } from '../utils/auditLogger.js';
 import logger from '../utils/logger.js';
 
 /**
- * Middleware to automatically log API requests to audit log
+ * Helper — resolve the client IP safely (req.connection is deprecated in Node 18+).
  */
-export const auditMiddleware = (action, resource) => {
-    return async (req, res, next) => {
-        const startTime = Date.now();
+const getIp = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
 
-        // Store original res.json to intercept response
-        const originalJson = res.json.bind(res);
+/**
+ * Generic audit middleware — logs any admin action on a resource.
+ *
+ * Usage: router.post('/', auth, role('admin'), auditMiddleware('PRODUCT_CREATE', 'Product'), createProduct)
+ */
+export const auditMiddleware = (action, resource) => (req, res, next) => {
+    const startTime = Date.now();
+    const originalJson = res.json.bind(res);
 
-        res.json = function (body) {
-            const duration = Date.now() - startTime;
-            const status = res.statusCode >= 200 && res.statusCode < 300 ? 'SUCCESS' : 'FAILURE';
+    res.json = function (body) {
+        const duration = Date.now() - startTime;
+        const status = res.statusCode >= 200 && res.statusCode < 300 ? 'SUCCESS' : 'FAILURE';
 
-            // Create audit log asynchronously (don't wait for it)
-            createAuditLog({
-                userId: req.user?._id,
-                userEmail: req.user?.email,
-                action,
-                resource,
-                resourceId: req.params.id || body?._id || body?.id,
-                method: req.method,
-                endpoint: req.originalUrl,
-                ipAddress: req.ip || req.connection.remoteAddress,
-                userAgent: req.get('user-agent'),
-                changes: req.body,
-                metadata: {
-                    query: req.query,
-                    params: req.params,
-                },
-                status,
-                errorMessage: status === 'FAILURE' ? body?.message : undefined,
-                duration,
-            }).catch(err => {
-                logger.error('Failed to create audit log in middleware', { error: err.message });
-            });
+        createAuditLog({
+            userId: req.user?._id,
+            userEmail: req.user?.email,
+            action,
+            resource,
+            resourceId: req.params?.id ?? body?.data?._id ?? body?._id,
+            method: req.method,
+            endpoint: req.originalUrl,
+            ipAddress: getIp(req),
+            userAgent: req.get('user-agent'),
+            changes: req.body,
+            metadata: { query: req.query, params: req.params },
+            status,
+            errorMessage: status === 'FAILURE' ? body?.message : undefined,
+            duration,
+        }).catch(err =>
+            logger.error('auditMiddleware: failed to create log', { error: err.message })
+        );
 
-            return originalJson(body);
-        };
-
-        next();
+        return originalJson(body);
     };
+
+    next();
 };
 
 /**
- * Middleware to log security events
+ * Security audit middleware — logs every 401 and 403 response automatically.
+ * Add once to your app in App.js to cover all routes.
  */
 export const securityAuditMiddleware = (req, res, next) => {
     const startTime = Date.now();
-
-    // Store original res.status to intercept security-related responses
     const originalStatus = res.status.bind(res);
 
     res.status = function (code) {
-        // Log security events for specific status codes
         if (code === 401 || code === 403) {
-            const duration = Date.now() - startTime;
             const action = code === 401 ? 'UNAUTHORIZED_ACCESS' : 'FORBIDDEN_ACCESS';
+            const duration = Date.now() - startTime;
 
             createAuditLog({
                 userId: req.user?._id,
@@ -67,25 +64,21 @@ export const securityAuditMiddleware = (req, res, next) => {
                 resource: 'AUTH',
                 method: req.method,
                 endpoint: req.originalUrl,
-                ipAddress: req.ip || req.connection.remoteAddress,
+                ipAddress: getIp(req),
                 userAgent: req.get('user-agent'),
-                metadata: {
-                    attemptedResource: req.originalUrl,
-                    userRole: req.user?.role,
-                },
+                metadata: { attemptedResource: req.originalUrl, userRole: req.user?.role },
                 status: 'WARNING',
                 duration,
-            }).catch(err => {
-                logger.error('Failed to create security audit log', { error: err.message });
-            });
+            }).catch(err =>
+                logger.error('securityAuditMiddleware: failed to create log', { error: err.message })
+            );
 
             logger.logSecurity(action, {
                 endpoint: req.originalUrl,
-                ip: req.ip || req.connection.remoteAddress,
+                ip: getIp(req),
                 userId: req.user?._id,
             });
         }
-
         return originalStatus(code);
     };
 
@@ -93,40 +86,42 @@ export const securityAuditMiddleware = (req, res, next) => {
 };
 
 /**
- * Middleware to log failed login attempts
+ * Login-specific audit middleware — logs USER_LOGIN and USER_LOGIN_FAILED.
+ * Add to POST /api/auth/login route only.
+ *
+ * NOTE: auth controller uses `sendTokenResponse` which structures response as
+ *       { success, message, data: { _id, ... } } — so we read body?.data?._id.
  */
-export const loginAuditMiddleware = async (req, res, next) => {
+export const loginAuditMiddleware = (req, res, next) => {
     const startTime = Date.now();
     const originalJson = res.json.bind(res);
 
     res.json = function (body) {
         const duration = Date.now() - startTime;
-        const isSuccess = res.statusCode === 200;
+        const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
         const action = isSuccess ? 'USER_LOGIN' : 'USER_LOGIN_FAILED';
 
         createAuditLog({
-            userId: isSuccess ? body?.user?._id : null,
+            userId: isSuccess ? (body?.data?._id ?? null) : null,
             userEmail: req.body?.email,
             action,
             resource: 'AUTH',
             method: req.method,
             endpoint: req.originalUrl,
-            ipAddress: req.ip || req.connection.remoteAddress,
+            ipAddress: getIp(req),
             userAgent: req.get('user-agent'),
-            metadata: {
-                email: req.body?.email,
-            },
+            metadata: { email: req.body?.email },
             status: isSuccess ? 'SUCCESS' : 'FAILURE',
             errorMessage: !isSuccess ? body?.message : undefined,
             duration,
-        }).catch(err => {
-            logger.error('Failed to create login audit log', { error: err.message });
-        });
+        }).catch(err =>
+            logger.error('loginAuditMiddleware: failed to create log', { error: err.message })
+        );
 
         if (!isSuccess) {
             logger.logSecurity('LOGIN_FAILED', {
                 email: req.body?.email,
-                ip: req.ip || req.connection.remoteAddress,
+                ip: getIp(req),
                 reason: body?.message,
             });
         }
@@ -138,84 +133,48 @@ export const loginAuditMiddleware = async (req, res, next) => {
 };
 
 /**
- * Middleware to log data changes (for PUT/PATCH/DELETE)
+ * Change audit middleware — logs data mutations (POST/PUT/PATCH/DELETE).
+ * Attach to individual admin routes where detailed change tracking is required.
  */
-export const changeAuditMiddleware = (resource) => {
-    return async (req, res, next) => {
-        // For update operations, fetch the original data
-        if ((req.method === 'PUT' || req.method === 'PATCH') && req.params.id) {
-            try {
-                // Store original data in req for comparison later
-                // This should be populated by the controller
-                req.auditOriginalData = null; // Controller should set this
-            } catch (error) {
-                logger.error('Failed to fetch original data for audit', { error: error.message });
-            }
-        }
+export const changeAuditMiddleware = (resource) => (req, res, next) => {
+    const startTime = Date.now();
+    const originalJson = res.json.bind(res);
 
-        const startTime = Date.now();
-        const originalJson = res.json.bind(res);
+    res.json = function (body) {
+        const duration = Date.now() - startTime;
+        const status = res.statusCode >= 200 && res.statusCode < 300 ? 'SUCCESS' : 'FAILURE';
 
-        res.json = function (body) {
-            const duration = Date.now() - startTime;
-            const status = res.statusCode >= 200 && res.statusCode < 300 ? 'SUCCESS' : 'FAILURE';
-
-            let action = '';
-            switch (req.method) {
-                case 'POST':
-                    action = `${resource}_CREATE`;
-                    break;
-                case 'PUT':
-                case 'PATCH':
-                    action = `${resource}_UPDATE`;
-                    break;
-                case 'DELETE':
-                    action = `${resource}_DELETE`;
-                    break;
-                default:
-                    action = `${resource}_${req.method}`;
-            }
-
-            const changes = {};
-            if (req.auditOriginalData && req.body) {
-                // Compare original and new data
-                Object.keys(req.body).forEach(key => {
-                    if (JSON.stringify(req.auditOriginalData[key]) !== JSON.stringify(req.body[key])) {
-                        changes[key] = {
-                            before: req.auditOriginalData[key],
-                            after: req.body[key],
-                        };
-                    }
-                });
-            }
-
-            createAuditLog({
-                userId: req.user?._id,
-                userEmail: req.user?.email,
-                action,
-                resource,
-                resourceId: req.params.id || body?._id || body?.id,
-                method: req.method,
-                endpoint: req.originalUrl,
-                ipAddress: req.ip || req.connection.remoteAddress,
-                userAgent: req.get('user-agent'),
-                changes: Object.keys(changes).length > 0 ? changes : req.body,
-                metadata: {
-                    query: req.query,
-                    params: req.params,
-                },
-                status,
-                errorMessage: status === 'FAILURE' ? body?.message : undefined,
-                duration,
-            }).catch(err => {
-                logger.error('Failed to create change audit log', { error: err.message });
-            });
-
-            return originalJson(body);
+        const methodActionMap = {
+            POST: `${resource}_CREATE`,
+            PUT: `${resource}_UPDATE`,
+            PATCH: `${resource}_UPDATE`,
+            DELETE: `${resource}_DELETE`,
         };
+        const action = methodActionMap[req.method] ?? `${resource}_${req.method}`;
 
-        next();
+        createAuditLog({
+            userId: req.user?._id,
+            userEmail: req.user?.email,
+            action,
+            resource,
+            resourceId: req.params?.id ?? body?.data?._id ?? body?._id,
+            method: req.method,
+            endpoint: req.originalUrl,
+            ipAddress: getIp(req),
+            userAgent: req.get('user-agent'),
+            changes: req.body,
+            metadata: { query: req.query, params: req.params },
+            status,
+            errorMessage: status === 'FAILURE' ? body?.message : undefined,
+            duration,
+        }).catch(err =>
+            logger.error('changeAuditMiddleware: failed to create log', { error: err.message })
+        );
+
+        return originalJson(body);
     };
+
+    next();
 };
 
 export default {

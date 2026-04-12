@@ -1,6 +1,6 @@
 import express from 'express';
 import auth from '../../middleware/auth.js';
-import role from '../../middleware/role.js';
+import { role } from '../../middleware/role.js';
 import validate from '../../middleware/validate.js';
 import { notificationSchema } from './notification.schema.js';
 import { createNotification, getNotifications, broadcastNotification, deleteNotification, getUserNotifications, markAllAsRead } from './notification.controller.js';

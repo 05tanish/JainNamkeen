@@ -16,8 +16,11 @@ export default function Login() {
         setError('');
         try {
             const data = await login(email, password);
-            if (data.user.role === 'admin') navigate('/admin');
-            else if (data.user.role === 'staff') navigate('/staff');
+            // The global interceptor unwraps the response and returns the user object natively
+            const user = data; 
+            
+            if (user.role === 'admin') navigate('/admin');
+            else if (user.role === 'staff') navigate('/staff');
             else navigate('/');
         } catch (err) {
             setError(err.message);

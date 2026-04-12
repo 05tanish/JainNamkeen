@@ -20,48 +20,48 @@ const auditLogSchema = new mongoose.Schema({
             'USER_REGISTER', 'USER_LOGIN', 'USER_LOGOUT', 'USER_LOGIN_FAILED',
             'PASSWORD_CHANGE', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_COMPLETE',
             'EMAIL_VERIFICATION', 'EMAIL_VERIFICATION_FAILED',
-            
+
             // User management
             'USER_CREATE', 'USER_UPDATE', 'USER_DELETE', 'USER_ROLE_CHANGE',
             'USER_STATUS_CHANGE', 'USER_SUSPEND', 'USER_UNSUSPEND',
-            
+
             // Product actions
             'PRODUCT_CREATE', 'PRODUCT_UPDATE', 'PRODUCT_DELETE', 'PRODUCT_STATUS_CHANGE',
             'PRODUCT_STOCK_UPDATE', 'PRODUCT_IMAGE_UPLOAD', 'PRODUCT_IMAGE_DELETE',
-            
+
             // Order actions
             'ORDER_CREATE', 'ORDER_UPDATE', 'ORDER_STATUS_CHANGE', 'ORDER_CANCEL',
             'ORDER_REFUND_REQUEST', 'ORDER_REFUND_APPROVE', 'ORDER_REFUND_REJECT',
             'ORDER_TRACKING_UPDATE',
-            
+
             // Cart actions
             'CART_ADD_ITEM', 'CART_UPDATE_ITEM', 'CART_REMOVE_ITEM', 'CART_CLEAR',
-            
+
             // Category actions
             'CATEGORY_CREATE', 'CATEGORY_UPDATE', 'CATEGORY_DELETE',
-            
+
             // Coupon actions
             'COUPON_CREATE', 'COUPON_UPDATE', 'COUPON_DELETE', 'COUPON_USE',
-            
+
             // Review actions
             'REVIEW_CREATE', 'REVIEW_UPDATE', 'REVIEW_DELETE', 'REVIEW_REPLY',
-            
+
             // Banner actions
             'BANNER_CREATE', 'BANNER_UPDATE', 'BANNER_DELETE',
-            
+
             // Attendance actions
             'ATTENDANCE_MARK', 'ATTENDANCE_UPDATE',
-            
+
             // Notification actions
             'NOTIFICATION_CREATE', 'NOTIFICATION_SEND', 'NOTIFICATION_DELETE',
-            
+
             // Page actions
             'PAGE_CREATE', 'PAGE_UPDATE', 'PAGE_DELETE',
-            
+
             // Security events
             'UNAUTHORIZED_ACCESS', 'RATE_LIMIT_EXCEEDED', 'INVALID_TOKEN',
             'SUSPICIOUS_ACTIVITY', 'DATA_EXPORT', 'BULK_DELETE',
-            
+
             // System events
             'SYSTEM_ERROR', 'DATABASE_ERROR', 'API_ERROR'
         ]
@@ -132,14 +132,29 @@ auditLogSchema.index({ ipAddress: 1, createdAt: -1 });
 auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ status: 1, createdAt: -1 });
 
-// TTL index - automatically delete logs older than 90 days (optional)
-// auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000 });
+// TTL index — auto-delete logs after AUDIT_LOG_TTL_DAYS (default 90 days)
+// Set AUDIT_LOG_TTL_DAYS=0 in .env to disable TTL
+const ttlDays = parseInt(process.env.AUDIT_LOG_TTL_DAYS ?? '90', 10);
+if (ttlDays > 0) {
+    auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: ttlDays * 86400 });
+}
 
 const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 
 /**
  * Create an audit log entry
  */
+/** Fields that must never be stored in audit logs (security). */
+const SENSITIVE_FIELDS = new Set(['password', 'token', 'secret', 'authorization', 'creditCard', 'cvv']);
+
+/** Strip sensitive keys from an object before persisting. */
+const sanitizeChanges = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    return Object.fromEntries(
+        Object.entries(obj).filter(([k]) => !SENSITIVE_FIELDS.has(k.toLowerCase()))
+    );
+};
+
 export const createAuditLog = async ({
     userId,
     userEmail,
@@ -167,7 +182,7 @@ export const createAuditLog = async ({
             endpoint,
             ipAddress,
             userAgent,
-            changes,
+            changes: sanitizeChanges(changes),
             metadata,
             status,
             errorMessage,
@@ -329,25 +344,25 @@ export const getAuditStats = async (startDate, endDate) => {
             topUsers
         ] = await Promise.all([
             AuditLog.countDocuments(query),
-            
+
             AuditLog.aggregate([
                 { $match: query },
                 { $group: { _id: '$action', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
                 { $limit: 10 }
             ]),
-            
+
             AuditLog.aggregate([
                 { $match: query },
                 { $group: { _id: '$resource', count: { $sum: 1 } } },
                 { $sort: { count: -1 } }
             ]),
-            
+
             AuditLog.aggregate([
                 { $match: query },
                 { $group: { _id: '$status', count: { $sum: 1 } } }
             ]),
-            
+
             AuditLog.aggregate([
                 { $match: { ...query, userId: { $ne: null } } },
                 { $group: { _id: '$userId', count: { $sum: 1 } } },
