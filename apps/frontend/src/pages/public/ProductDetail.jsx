@@ -1,10 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense, memo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { FiShoppingCart, FiArrowLeft, FiStar, FiEdit, FiTrash2, FiCheck, FiMapPin, FiClock, FiAward } from 'react-icons/fi';
+import { Skeleton, Tabs } from '@heroui/react';
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
 import './ProductDetail.css';
+
+// Lazy load Accordion component
+const Accordion = lazy(() => import('@heroui/react').then(module => ({ default: module.Accordion })));
+
+// Memoized Skeleton components
+const ProductImageSkeleton = memo(() => (
+    <Skeleton height={500} style={{ borderRadius: 'var(--radius)' }} />
+));
+ProductImageSkeleton.displayName = 'ProductImageSkeleton';
+
+const ProductDetailsSkeleton = memo(() => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* Badge Skeleton */}
+        <Skeleton height={40} width="30%" style={{ borderRadius: '50px' }} />
+        
+        {/* Title Skeleton */}
+        <Skeleton height={60} width="80%" />
+        
+        {/* Description Skeleton */}
+        <Skeleton height={80} width="100%" />
+        
+        {/* Price Skeleton */}
+        <Skeleton height={50} width="60%" />
+    </div>
+));
+ProductDetailsSkeleton.displayName = 'ProductDetailsSkeleton';
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -115,8 +142,14 @@ export default function ProductDetail() {
 
     if (loading) {
         return (
-            <div className="page container">
-                <div className="skeleton" style={{ height: 400, borderRadius: 'var(--radius)' }} />
+            <div className="page container" style={{ paddingTop: 32 }}>
+                <div className="product-hero-grid">
+                    {/* Image Skeleton */}
+                    <ProductImageSkeleton />
+                    
+                    {/* Product Details Skeleton */}
+                    <ProductDetailsSkeleton />
+                </div>
             </div>
         );
     }
@@ -134,6 +167,256 @@ export default function ProductDetail() {
     }
 
     const weightOptions = ['250g', '500g', '1kg'];
+
+    // Memoize tab content to prevent unnecessary re-renders
+    const descriptionTabContent = useMemo(() => (
+        <>
+            {/* Details Bento Grid */}
+            <div className="details-bento">
+                {/* Culinary Notes */}
+                <div className="culinary-notes-card">
+                    <span className="card-label">
+                        The Experience
+                    </span>
+                    <h2 className="card-title">
+                        Culinary Notes
+                    </h2>
+                    <p className="card-description">
+                        Experience the authentic taste of Udaipur with every bite. Crafted using traditional methods passed down through generations, this product delivers a perfect balance of flavors and textures that will transport you to the royal kitchens of Rajasthan.
+                    </p>
+                    <div className="product-specs">
+                        <div>
+                            <span className="spec-value">Medium</span>
+                            <span className="spec-label">Spice Level</span>
+                        </div>
+                        <div className="spec-divider"></div>
+                        <div>
+                            <span className="spec-value">Extra-Crisp</span>
+                            <span className="spec-label">Texture</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Heritage Ingredients */}
+                <div className="ingredients-card">
+                    <h2 className="ingredients-title">
+                        Heritage Ingredients
+                    </h2>
+                    <ul className="ingredients-list">
+                        <li><FiCheck size={20} /> Premium Gram Flour</li>
+                        <li><FiCheck size={20} /> Cold-Pressed Oil</li>
+                        <li><FiCheck size={20} /> Authentic Spices</li>
+                        <li><FiCheck size={20} /> Hand-mined Salt</li>
+                    </ul>
+                </div>
+            </div>
+
+            {/* Heritage Image */}
+            <div className="heritage-image-container">
+                <img 
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWp7hMcsN2rZFeI8uERn3fgW5OHrH7Ta-aOPt0m8qDaeD0z6K9582VH6JHdBFtkTa4BuZQqMHFspqsFprvfR1H9aDP8p1YuJ66-QTP06-kTv0o04_1bugeR53gPYIwjOJFm_t4_WTNRyaNcri_If3wjTau2A7YfgFChTo95MUdEfGDqRjytUTIUHKgsLUpwymT-Rol73TjwJcmA1-cdW9clKcMj0kEOiTO0p7PZySLAPX3s5xyBGOxNt1WazuNIfkmRh5UbkDVsek" 
+                    alt="Heritage" 
+                    className="heritage-image"
+                />
+                <div className="heritage-overlay">
+                    <h3 className="heritage-title">
+                        Crafted with Heritage.
+                    </h3>
+                    <p className="heritage-description">
+                        Every product is a tribute to the royal kitchens of Udaipur, where flavors were treated as art forms.
+                    </p>
+                </div>
+            </div>
+        </>
+    ), []);
+
+    const specificationsTabContent = useMemo(() => (
+        <div className="product-specs-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: 24,
+            padding: '40px 0'
+        }}>
+            <div className="spec-item" style={{
+                padding: 24,
+                background: 'var(--surface-container)',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)'
+            }}>
+                <h4 style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.1rem',
+                    marginBottom: 12,
+                    color: 'var(--primary)'
+                }}>Weight Options</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>250g, 500g, 1kg</p>
+            </div>
+            <div className="spec-item" style={{
+                padding: 24,
+                background: 'var(--surface-container)',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)'
+            }}>
+                <h4 style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.1rem',
+                    marginBottom: 12,
+                    color: 'var(--primary)'
+                }}>Shelf Life</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>30 days from manufacturing</p>
+            </div>
+            <div className="spec-item" style={{
+                padding: 24,
+                background: 'var(--surface-container)',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)'
+            }}>
+                <h4 style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.1rem',
+                    marginBottom: 12,
+                    color: 'var(--primary)'
+                }}>Storage</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Store in a cool, dry place</p>
+            </div>
+            <div className="spec-item" style={{
+                padding: 24,
+                background: 'var(--surface-container)',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)'
+            }}>
+                <h4 style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.1rem',
+                    marginBottom: 12,
+                    color: 'var(--primary)'
+                }}>Origin</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Made in Udaipur, Rajasthan</p>
+            </div>
+        </div>
+    ), []);
+
+    // Memoize reviews tab content
+    const reviewsTabContent = useMemo(() => (
+        <div>
+            <div className="reviews-header">
+                <div>
+                    <h2 className="reviews-title">
+                        Voice of the Pavilion
+                    </h2>
+                    <p className="reviews-subtitle">
+                        Our customers from across the globe share their experiences with the authentic taste of Rajasthan.
+                    </p>
+                </div>
+                {user && !reviews.find(r => r.user?._id === user._id) && (
+                    <button 
+                        className="btn btn-primary" 
+                        onClick={() => { setShowReviewForm(!showReviewForm); setEditingReview(null); setReviewForm({ rating: 5, comment: '', images: [] }); }}
+                    >
+                        {showReviewForm ? 'Cancel' : 'Write a Review'}
+                    </button>
+                )}
+            </div>
+
+            {showReviewForm && (
+                <form onSubmit={handleReviewSubmit} className="card animate-fadeIn" style={{ marginBottom: 48, background: 'var(--surface-container)' }}>
+                    <h3 style={{ marginBottom: 24 }}>{editingReview ? 'Edit Your Review' : 'Write a Review'}</h3>
+
+                    <div className="form-group">
+                        <label>Rating</label>
+                        <div style={{ display: 'flex', gap: 8, color: 'var(--primary)', fontSize: '1.5rem', cursor: 'pointer' }}>
+                            {[1, 2, 3, 4, 5].map(star => (
+                                <FiStar
+                                    key={star}
+                                    onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                                    fill={star <= reviewForm.rating ? 'var(--primary)' : 'none'}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label>Review Comment</label>
+                        <textarea
+                            className="form-control"
+                            rows={4}
+                            value={reviewForm.comment}
+                            onChange={e => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                            required
+                            placeholder="What did you like or dislike about this product?"
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label>Upload Images (Optional, max 3)</label>
+                        <input
+                            type="file"
+                            className="form-control"
+                            accept="image/*"
+                            multiple
+                            onChange={e => {
+                                if (e.target.files.length > 3) {
+                                    alert('You can only upload up to 3 images');
+                                    e.target.value = '';
+                                } else {
+                                    setReviewForm({ ...reviewForm, images: e.target.files });
+                                }
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => { setShowReviewForm(false); setEditingReview(null); }}>Cancel</button>
+                        <button type="submit" className="btn btn-primary">Submit Review</button>
+                    </div>
+                </form>
+            )}
+
+            <div className="reviews-grid">
+                {reviews.slice(0, 3).map(review => (
+                    <div key={review._id} className="review-card">
+                        <div style={{ display: 'flex', gap: 4, color: 'var(--accent)', marginBottom: 16 }}>
+                            {[1, 2, 3, 4, 5].map(star => (
+                                <FiStar key={star} fill={star <= review.rating ? 'var(--accent)' : 'none'} />
+                            ))}
+                        </div>
+                        <p className="review-comment">
+                            "{review.comment}"
+                        </p>
+                        <div className="review-author">
+                            <div className="author-avatar">
+                                {review.user?.name?.charAt(0) || 'A'}
+                            </div>
+                            <div>
+                                <h4 className="author-name">{review.user?.name || 'Anonymous'}</h4>
+                                <span className="author-badge">
+                                    Verified Buyer
+                                </span>
+                            </div>
+                        </div>
+                        {user && (user._id === review.user?._id || user.role === 'admin') && (
+                            <div className="review-actions">
+                                {user._id === review.user?._id && (
+                                    <button className="btn btn-secondary btn-sm" onClick={() => {
+                                        setReviewForm({ rating: review.rating, comment: review.comment, images: null, existingImages: review.images });
+                                        setEditingReview(review._id);
+                                        setShowReviewForm(true);
+                                    }}><FiEdit size={12} /></button>
+                                )}
+                                <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReview(review._id)}><FiTrash2 size={12} /></button>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {reviews.length === 0 && (
+                <div style={{ textAlign: 'center', padding: 80, color: 'var(--text-muted)' }}>
+                    No reviews yet. Be the first to review this product!
+                </div>
+            )}
+        </div>
+    ), [reviews, user, showReviewForm, editingReview, reviewForm, handleReviewSubmit, handleDeleteReview]);
 
     return (
         <div style={{ background: 'var(--surface)', minHeight: '100vh' }}>
@@ -320,185 +603,105 @@ export default function ProductDetail() {
                 </div>
             </section>
 
-            {/* Details Bento Grid */}
+            {/* Tabs Section */}
             <section className="container" style={{ paddingBottom: 80 }}>
-                <div className="details-bento">
-                    {/* Culinary Notes */}
-                    <div className="culinary-notes-card">
-                        <span className="card-label">
-                            The Experience
-                        </span>
-                        <h2 className="card-title">
-                            Culinary Notes
-                        </h2>
-                        <p className="card-description">
-                            Experience the authentic taste of Udaipur with every bite. Crafted using traditional methods passed down through generations, this product delivers a perfect balance of flavors and textures that will transport you to the royal kitchens of Rajasthan.
-                        </p>
-                        <div className="product-specs">
-                            <div>
-                                <span className="spec-value">Medium</span>
-                                <span className="spec-label">Spice Level</span>
-                            </div>
-                            <div className="spec-divider"></div>
-                            <div>
-                                <span className="spec-value">Extra-Crisp</span>
-                                <span className="spec-label">Texture</span>
-                            </div>
-                        </div>
-                    </div>
+                <Tabs
+                    defaultValue="description"
+                    color="primary"
+                    size="lg"
+                    style={{ marginBottom: 40 }}
+                >
+                    <Tabs.List>
+                        <Tabs.Tab value="description">Description</Tabs.Tab>
+                        <Tabs.Tab value="reviews">Reviews ({stats.totalReviews})</Tabs.Tab>
+                        <Tabs.Tab value="specifications">Specifications</Tabs.Tab>
+                    </Tabs.List>
 
-                    {/* Heritage Ingredients */}
-                    <div className="ingredients-card">
-                        <h2 className="ingredients-title">
-                            Heritage Ingredients
-                        </h2>
-                        <ul className="ingredients-list">
-                            <li><FiCheck size={20} /> Premium Gram Flour</li>
-                            <li><FiCheck size={20} /> Cold-Pressed Oil</li>
-                            <li><FiCheck size={20} /> Authentic Spices</li>
-                            <li><FiCheck size={20} /> Hand-mined Salt</li>
-                        </ul>
-                    </div>
-                </div>
+                    <Tabs.Panel value="description">
+                        {descriptionTabContent}
+                    </Tabs.Panel>
 
-                {/* Heritage Image */}
-                <div className="heritage-image-container">
-                    <img 
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWp7hMcsN2rZFeI8uERn3fgW5OHrH7Ta-aOPt0m8qDaeD0z6K9582VH6JHdBFtkTa4BuZQqMHFspqsFprvfR1H9aDP8p1YuJ66-QTP06-kTv0o04_1bugeR53gPYIwjOJFm_t4_WTNRyaNcri_If3wjTau2A7YfgFChTo95MUdEfGDqRjytUTIUHKgsLUpwymT-Rol73TjwJcmA1-cdW9clKcMj0kEOiTO0p7PZySLAPX3s5xyBGOxNt1WazuNIfkmRh5UbkDVsek" 
-                        alt="Heritage" 
-                        className="heritage-image"
-                    />
-                    <div className="heritage-overlay">
-                        <h3 className="heritage-title">
-                            Crafted with Heritage.
-                        </h3>
-                        <p className="heritage-description">
-                            Every product is a tribute to the royal kitchens of Udaipur, where flavors were treated as art forms.
-                        </p>
-                    </div>
-                </div>
+                    <Tabs.Panel value="reviews">
+                        {reviewsTabContent}
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="specifications">
+                        {specificationsTabContent}
+                    </Tabs.Panel>
+                </Tabs>
             </section>
 
-            {/* Customer Reviews */}
-            <section style={{ background: 'var(--surface-container-lowest)', padding: '80px 0' }}>
-                <div className="container">
-                    <div className="reviews-header">
-                        <div>
-                            <h2 className="reviews-title">
-                                Voice of the Pavilion
-                            </h2>
-                            <p className="reviews-subtitle">
-                                Our customers from across the globe share their experiences with the authentic taste of Rajasthan.
-                            </p>
-                        </div>
-                        {user && !reviews.find(r => r.user?._id === user._id) && (
-                            <button 
-                                className="btn btn-primary" 
-                                onClick={() => { setShowReviewForm(!showReviewForm); setEditingReview(null); setReviewForm({ rating: 5, comment: '', images: [] }); }}
-                            >
-                                {showReviewForm ? 'Cancel' : 'Write a Review'}
-                            </button>
-                        )}
-                    </div>
-
-                    {showReviewForm && (
-                        <form onSubmit={handleReviewSubmit} className="card animate-fadeIn" style={{ marginBottom: 48, background: 'var(--surface-container)' }}>
-                            <h3 style={{ marginBottom: 24 }}>{editingReview ? 'Edit Your Review' : 'Write a Review'}</h3>
-
-                            <div className="form-group">
-                                <label>Rating</label>
-                                <div style={{ display: 'flex', gap: 8, color: 'var(--primary)', fontSize: '1.5rem', cursor: 'pointer' }}>
-                                    {[1, 2, 3, 4, 5].map(star => (
-                                        <FiStar
-                                            key={star}
-                                            onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                                            fill={star <= reviewForm.rating ? 'var(--primary)' : 'none'}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Review Comment</label>
-                                <textarea
-                                    className="form-control"
-                                    rows={4}
-                                    value={reviewForm.comment}
-                                    onChange={e => setReviewForm({ ...reviewForm, comment: e.target.value })}
-                                    required
-                                    placeholder="What did you like or dislike about this product?"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label>Upload Images (Optional, max 3)</label>
-                                <input
-                                    type="file"
-                                    className="form-control"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={e => {
-                                        if (e.target.files.length > 3) {
-                                            alert('You can only upload up to 3 images');
-                                            e.target.value = '';
-                                        } else {
-                                            setReviewForm({ ...reviewForm, images: e.target.files });
-                                        }
-                                    }}
-                                />
-                            </div>
-
-                            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn btn-secondary" onClick={() => { setShowReviewForm(false); setEditingReview(null); }}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Submit Review</button>
-                            </div>
-                        </form>
-                    )}
-
-                    <div className="reviews-grid">
-                        {reviews.slice(0, 3).map(review => (
-                            <div key={review._id} className="review-card">
-                                <div style={{ display: 'flex', gap: 4, color: 'var(--accent)', marginBottom: 16 }}>
-                                    {[1, 2, 3, 4, 5].map(star => (
-                                        <FiStar key={star} fill={star <= review.rating ? 'var(--accent)' : 'none'} />
-                                    ))}
-                                </div>
-                                <p className="review-comment">
-                                    "{review.comment}"
+            {/* FAQ Section */}
+            <section className="container" style={{ paddingBottom: 80 }}>
+                <h2 style={{ 
+                    fontFamily: 'var(--font-heading)', 
+                    fontSize: '2rem', 
+                    marginBottom: 32,
+                    textAlign: 'center',
+                    color: 'var(--text-primary)'
+                }}>
+                    Frequently Asked Questions
+                </h2>
+                
+                <Suspense fallback={<div style={{ textAlign: 'center', padding: 40 }}>Loading...</div>}>
+                    <Accordion
+                        multiple
+                        defaultValue={['shipping']}
+                        style={{ maxWidth: 800, margin: '0 auto' }}
+                    >
+                        <Accordion.Item value="shipping">
+                            <Accordion.Trigger>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                    What are the shipping charges?
+                                </h3>
+                            </Accordion.Trigger>
+                            <Accordion.Content>
+                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                    We offer FREE shipping on orders above ₹500. For orders below ₹500, a flat delivery charge of ₹40 applies.
                                 </p>
-                                <div className="review-author">
-                                    <div className="author-avatar">
-                                        {review.user?.name?.charAt(0) || 'A'}
-                                    </div>
-                                    <div>
-                                        <h4 className="author-name">{review.user?.name || 'Anonymous'}</h4>
-                                        <span className="author-badge">
-                                            Verified Buyer
-                                        </span>
-                                    </div>
-                                </div>
-                                {user && (user._id === review.user?._id || user.role === 'admin') && (
-                                    <div className="review-actions">
-                                        {user._id === review.user?._id && (
-                                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                                setReviewForm({ rating: review.rating, comment: review.comment, images: null, existingImages: review.images });
-                                                setEditingReview(review._id);
-                                                setShowReviewForm(true);
-                                            }}><FiEdit size={12} /></button>
-                                        )}
-                                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReview(review._id)}><FiTrash2 size={12} /></button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                            </Accordion.Content>
+                        </Accordion.Item>
 
-                    {reviews.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: 80, color: 'var(--text-muted)' }}>
-                            No reviews yet. Be the first to review this product!
-                        </div>
-                    )}
-                </div>
+                        <Accordion.Item value="freshness">
+                            <Accordion.Trigger>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                    How do you ensure freshness?
+                                </h3>
+                            </Accordion.Trigger>
+                            <Accordion.Content>
+                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                    All our products are made fresh daily using traditional methods. We package them immediately to lock in the freshness and flavor.
+                                </p>
+                            </Accordion.Content>
+                        </Accordion.Item>
+
+                        <Accordion.Item value="ingredients">
+                            <Accordion.Trigger>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                    Are your products 100% vegetarian?
+                                </h3>
+                            </Accordion.Trigger>
+                            <Accordion.Content>
+                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                    Yes, all our products are 100% vegetarian and made with premium quality ingredients sourced from trusted suppliers.
+                                </p>
+                            </Accordion.Content>
+                        </Accordion.Item>
+
+                        <Accordion.Item value="returns">
+                            <Accordion.Trigger>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                    What is your return policy?
+                                </h3>
+                            </Accordion.Trigger>
+                            <Accordion.Content>
+                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                    We accept returns within 7 days of delivery if the product is damaged or not as described. Please contact our customer support for assistance.
+                                </p>
+                            </Accordion.Content>
+                        </Accordion.Item>
+                    </Accordion>
+                </Suspense>
             </section>
         </div>
     );

@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FiSearch, FiFilter, FiX, FiChevronDown, FiTrendingUp, FiClock, FiStar } from 'react-icons/fi';
+import { Skeleton } from '@heroui/react';
+import { Pagination } from '@heroui/react';
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
@@ -16,6 +18,19 @@ const SORT_OPTIONS = [
 
 const WEIGHT_OPTIONS = ['200g', '250g', '300g', '350g', '400g', '500g', '1.5 kg'];
 
+// Memoized Skeleton component for product cards
+const ProductCardSkeleton = memo(() => (
+    <div className="product-card">
+        <Skeleton height={240} style={{ borderRadius: 'var(--radius)', marginBottom: 16 }} />
+        <div style={{ padding: 16 }}>
+            <Skeleton height={20} width="60%" style={{ marginBottom: 8, borderRadius: 'var(--radius-sm)' }} />
+            <Skeleton height={24} width="80%" style={{ marginBottom: 12, borderRadius: 'var(--radius-sm)' }} />
+            <Skeleton height={20} width="40%" style={{ borderRadius: 'var(--radius-sm)' }} />
+        </div>
+    </div>
+));
+ProductCardSkeleton.displayName = 'ProductCardSkeleton';
+
 export default function Products() {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -27,10 +42,12 @@ export default function Products() {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
     const { user } = useAuth();
     const { addToCart } = useCart();
     const searchRef = useRef(null);
     const suggestTimer = useRef(null);
+    const productsPerPage = 12;
 
     // Filters from URL params
     const activeCategory = searchParams.get('category') || '';
@@ -77,6 +94,11 @@ export default function Products() {
             setLoading(false);
         };
         fetchProducts();
+    }, [activeCategory, activeTag, activeSort, activeMinPrice, activeMaxPrice, activeWeight, search]);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
     }, [activeCategory, activeTag, activeSort, activeMinPrice, activeMaxPrice, activeWeight, search]);
 
     // Auto-suggest debounced
@@ -127,6 +149,24 @@ export default function Products() {
     };
 
     const activeFilterCount = [activeCategory, activeTag, activeMinPrice || activeMaxPrice, activeWeight].filter(Boolean).length;
+
+    // Memoize pagination calculations
+    const paginationData = useMemo(() => {
+        const indexOfLastProduct = currentPage * productsPerPage;
+        const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+        const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
+        const totalPages = Math.ceil(products.length / productsPerPage);
+        
+        return { currentProducts, totalPages, indexOfFirstProduct, indexOfLastProduct };
+    }, [currentPage, products, productsPerPage]);
+
+    const { currentProducts, totalPages } = paginationData;
+
+    // Handle page change
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     return (
         <div className="page container">
@@ -390,7 +430,7 @@ export default function Products() {
             {loading ? (
                 <div className="grid grid-4">
                     {[...Array(8)].map((_, i) => (
-                        <div key={i} className="skeleton" style={{ height: 320, borderRadius: 'var(--radius)' }} />
+                        <ProductCardSkeleton key={i} />
                     ))}
                 </div>
             ) : products.length === 0 ? (
@@ -402,7 +442,7 @@ export default function Products() {
                 </div>
             ) : (
                 <div className="grid grid-4" style={{ marginTop: '20px' }}>
-                    {products.map(product => (
+                    {currentProducts.map(product => (
                         <div key={product._id} className="product-card animate-fadeIn">
                             <Link to={`/product/${product._id}`} style={{ display: 'block' }}>
                                 <div className="product-image">
@@ -454,6 +494,21 @@ export default function Products() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && products.length > productsPerPage && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
+                    <Pagination
+                        total={totalPages}
+                        page={currentPage}
+                        onChange={handlePageChange}
+                        color="primary"
+                        size="lg"
+                        showControls
+                        showShadow
+                    />
                 </div>
             )}
 

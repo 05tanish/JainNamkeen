@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API from '../../api/axios';
 import { useCart } from '../../hooks/useCart';
+import { useAlert } from '../../components/AlertManager';
 import './Checkout.css';
+
+// Lazy load Calendar component
+const Calendar = lazy(() => import('@heroui/react').then(module => ({ default: module.Calendar })));
 
 export default function Checkout() {
     const navigate = useNavigate();
     const { items, cartTotal, clearCart } = useCart();
+    const { showAlert } = useAlert();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -24,25 +28,55 @@ export default function Checkout() {
     const [couponError, setCouponError] = useState('');
     const [activeCoupons, setActiveCoupons] = useState([]);
 
+    // Delivery date state
+    const [deliveryDate, setDeliveryDate] = useState(() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 3); // Default to 3 days from now
+        return date;
+    });
+
+    // Memoize min and max dates to prevent recalculation
+    const minDate = useMemo(() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 3); // Minimum 3 days
+        return date;
+    }, []);
+
+    const maxDate = useMemo(() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 30); // Maximum 30 days
+        return date;
+    }, []);
+
     useEffect(() => {
         API.get('/coupons/active').then(res => setActiveCoupons(res.data)).catch(() => {});
     }, []);
 
-    const deliveryCharge = cartTotal >= 500 ? 0 : 40;
+    // Memoize delivery charge calculation
+    const deliveryCharge = useMemo(() => {
+        return cartTotal >= 500 ? 0 : 40;
+    }, [cartTotal]);
     
-    let discount = 0;
-    if (appliedCoupon) {
+    // Memoize discount calculation
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        
         if (appliedCoupon.discountType === 'fixed') {
-            discount = appliedCoupon.discountValue;
+            return appliedCoupon.discountValue;
         } else if (appliedCoupon.discountType === 'percentage') {
-            discount = (cartTotal * appliedCoupon.discountValue) / 100;
+            let calculatedDiscount = (cartTotal * appliedCoupon.discountValue) / 100;
             if (appliedCoupon.maxDiscount) {
-                discount = Math.min(discount, appliedCoupon.maxDiscount);
+                calculatedDiscount = Math.min(calculatedDiscount, appliedCoupon.maxDiscount);
             }
+            return calculatedDiscount;
         }
-    }
+        return 0;
+    }, [appliedCoupon, cartTotal]);
     
-    const total = Math.max(0, cartTotal + deliveryCharge - discount);
+    // Memoize total calculation
+    const total = useMemo(() => {
+        return Math.max(0, cartTotal + deliveryCharge - discount);
+    }, [cartTotal, deliveryCharge, discount]);
 
     const handleApplyCoupon = (e) => {
         e.preventDefault();
@@ -50,24 +84,28 @@ export default function Checkout() {
         const coupon = activeCoupons.find(c => c.code.toUpperCase() === couponCode.toUpperCase());
         
         if (!coupon) {
-            setCouponError('Invalid or expired coupon code');
+            const errorMsg = 'Invalid or expired coupon code';
+            setCouponError(errorMsg);
             setAppliedCoupon(null);
+            showAlert(errorMsg, 'error');
             return;
         }
         
         if (cartTotal < (coupon.minOrderAmount || 0)) {
-            setCouponError(`Minimum order amount of ₹${coupon.minOrderAmount} required`);
+            const errorMsg = `Minimum order amount of ₹${coupon.minOrderAmount} required`;
+            setCouponError(errorMsg);
             setAppliedCoupon(null);
+            showAlert(errorMsg, 'error');
             return;
         }
         
         setAppliedCoupon(coupon);
         setCouponCode('');
+        showAlert(`Coupon ${coupon.code} applied successfully!`, 'success');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
         setLoading(true);
 
         try {
@@ -88,14 +126,19 @@ export default function Checkout() {
                     pincode: form.pincode
                 },
                 paymentMethod: form.paymentMethod,
-                couponCode: appliedCoupon?.code || null
+                couponCode: appliedCoupon?.code || null,
+                deliveryDate: deliveryDate.toISOString()
             };
 
             await API.post('/orders', orderData);
             await clearCart();
-            navigate('/my-orders', { state: { orderPlaced: true } });
+            showAlert('Order placed successfully! Redirecting...', 'success');
+            setTimeout(() => {
+                navigate('/my-orders', { state: { orderPlaced: true } });
+            }, 1000);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to place order');
+            const errorMsg = err.response?.data?.message || 'Failed to place order. Please try again.';
+            showAlert(errorMsg, 'error', 0); // 0 duration = no auto-dismiss for critical errors
             setLoading(false);
         }
     };
@@ -119,8 +162,6 @@ export default function Checkout() {
                 <h1>Checkout</h1>
                 <p>Complete your order</p>
             </div>
-
-            {error && <div className="alert alert-danger" style={{ marginBottom: 24 }}>{error}</div>}
 
             <div className="checkout-layout">
                 <form onSubmit={handleSubmit}>
@@ -174,6 +215,32 @@ export default function Checkout() {
                                 onChange={() => setForm({ ...form, paymentMethod: 'online' })} />
                             <span>💳 Online Payment (Coming Soon)</span>
                         </label>
+                    </div>
+
+                    <div className="card" style={{ padding: 24, marginBottom: 24 }}>
+                        <h3 style={{ marginBottom: 16 }}>Preferred Delivery Date</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+                            Select your preferred delivery date (3-30 days from today)
+                        </p>
+                        <Suspense fallback={<div style={{ textAlign: 'center', padding: 40 }}>Loading calendar...</div>}>
+                            <Calendar
+                                value={deliveryDate}
+                                onChange={setDeliveryDate}
+                                minDate={minDate}
+                                maxDate={maxDate}
+                                color="primary"
+                                showMonthAndYearPickers
+                                style={{ maxWidth: 400 }}
+                            />
+                        </Suspense>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 12 }}>
+                            Selected: {deliveryDate.toLocaleDateString('en-IN', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                            })}
+                        </p>
                     </div>
 
                     <button type="submit" className="btn btn-primary" disabled={loading}

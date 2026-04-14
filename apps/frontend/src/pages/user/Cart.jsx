@@ -1,10 +1,32 @@
 import { Link } from 'react-router-dom';
 import { FiTrash2, FiShoppingBag } from 'react-icons/fi';
 import { useCart } from '../../hooks/useCart';
+import { useAlert } from '../../components/AlertManager';
 import './Cart.css';
 
 export default function Cart() {
     const { items, cartTotal, updateQuantity, removeFromCart, loading } = useCart();
+    const { showAlert } = useAlert();
+
+    // Handle quantity update with alert feedback
+    const handleUpdateQuantity = async (productId, newQuantity) => {
+        try {
+            await updateQuantity(productId, newQuantity);
+            showAlert('Cart updated successfully', 'success');
+        } catch (error) {
+            showAlert('Failed to update cart. Please try again.', 'error');
+        }
+    };
+
+    // Handle remove from cart with alert feedback
+    const handleRemoveFromCart = async (productId) => {
+        try {
+            await removeFromCart(productId);
+            showAlert('Item removed from cart', 'info');
+        } catch (error) {
+            showAlert('Failed to remove item. Please try again.', 'error');
+        }
+    };
 
     if (loading) {
         return (
@@ -54,7 +76,7 @@ export default function Cart() {
                             <div className="cart-item-quantity">
                                 <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => updateQuantity(item.product?._id, item.quantity - 1)}
+                                    onClick={() => handleUpdateQuantity(item.product?._id, item.quantity - 1)}
                                     style={{ borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}
                                 >−</button>
                                 <span style={{
@@ -63,7 +85,7 @@ export default function Cart() {
                                 }}>{item.quantity}</span>
                                 <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => updateQuantity(item.product?._id, item.quantity + 1)}
+                                    onClick={() => handleUpdateQuantity(item.product?._id, item.quantity + 1)}
                                     style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}
                                 >+</button>
                             </div>
@@ -71,7 +93,7 @@ export default function Cart() {
                             <div className="cart-item-total">
                                 <p style={{ fontWeight: 700, marginBottom: 4 }}>₹{(item.product?.price || 0) * item.quantity}</p>
                                 <button
-                                    onClick={() => removeFromCart(item.product?._id)}
+                                    onClick={() => handleRemoveFromCart(item.product?._id)}
                                     style={{ background: 'none', color: 'var(--danger)', fontSize: '1rem' }}
                                 ><FiTrash2 /></button>
                             </div>
