@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { z } from 'zod';
-import connectDB from './config/db.js';
+import connectDB from './config/mongodb.js';
 import { connectRedis } from './config/Redis.js';
+import { connectPostgres } from './config/Postgrsedb.js';
 import app from './App.js';
 
 // ── Environment validation ────────────────────────────────────────────────────
@@ -9,6 +10,7 @@ import app from './App.js';
 const envSchema = z.object({
     PORT: z.string().default('5000'),
     MONGODB_URI: z.string().min(10, 'MONGODB_URI is required and must be a valid URI'),
+    DATABASE_URL: z.string().min(10, 'DATABASE_URL is required for PostgreSQL connection'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters long'),
     JWT_EXPIRE: z.string().default('7d'),
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -33,6 +35,7 @@ const { default: logger } = await import('./utils/logger.js');
 // ── Boot ──────────────────────────────────────────────────────────────────────
 const start = async () => {
     await connectDB();
+    await connectPostgres();
     await connectRedis();
 
     const PORT = process.env.PORT || 5000;

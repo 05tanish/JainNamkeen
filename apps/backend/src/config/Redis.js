@@ -74,6 +74,7 @@ export const cacheGet = async (key) => {
         const data = await redisClient.get(key);
         return data ? JSON.parse(data) : null;
     } catch {
+        logger.warn(`Cache parse error for key ${key}: ${err.message}`);
         return null;
     }
 };

@@ -2,7 +2,7 @@ import User from '../modules/users/user.model.js';
 import { extractToken } from '../utils/TokenHelper.js';
 import { verifyToken } from '../utils/JWT.js';
 import ApiError from '../utils/ApiError.js';
-import asyncHandler from '../utils/asyncHandler.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 /**
  * Authentication middleware.

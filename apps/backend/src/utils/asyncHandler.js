@@ -2,8 +2,8 @@
  * Wraps an asynchronous function to catch any errors and pass them to the next middleware.
  * This eliminates the need for try-catch blocks in every controller.
  */
-const asyncHandler = (fn) => (req, res, next) => {
+ export const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-export default asyncHandler;
+

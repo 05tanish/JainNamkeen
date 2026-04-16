@@ -1,4 +1,4 @@
-import asyncHandler from '../../utils/asyncHandler.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
 import { sendTokenResponse, extractToken } from '../../utils/TokenHelper.js';
 import { getCookieOptions } from '../../utils/JWT.js';
