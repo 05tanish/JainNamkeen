@@ -1,7 +1,7 @@
 import express from 'express';
-import auth from '../../middleware/auth.js';
+import { auth } from '../../middleware/auth.js';
 import { role } from '../../middleware/role.js';
-import validate from '../../middleware/validate.js';
+import { validate } from '../../middleware/validate.js';
 import { updateUserRoleSchema, suspendUserSchema } from './user.schema.js';
 import { 
     getUsers, 

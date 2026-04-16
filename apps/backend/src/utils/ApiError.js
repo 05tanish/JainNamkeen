@@ -1,19 +1,4 @@
-/**
- * Custom Application Error class.
- * Throw this anywhere in your service/controller layer and
- * the global errorMiddleware will format it into a consistent JSON response.
- *
- * Usage:
- *   throw new ApiError(404, 'User not found');
- *   throw new ApiError(400, 'Validation failed', ['name is required', 'email is invalid']);
- */
-class ApiError extends Error {
-    /**
-     * @param {number} statusCode  - HTTP status code (e.g. 400, 401, 404, 500)
-     * @param {string} message     - Human-readable error message
-     * @param {string[]} [errors]  - Optional array of validation/field-level errors
-     * @param {string} [stack]     - Optional custom stack trace (rarely needed)
-     */
+export class ApiError extends Error {
     constructor(
         statusCode,
         message = 'Something went wrong',
@@ -33,5 +18,3 @@ class ApiError extends Error {
         }
     }
 }
-
-export default ApiError;

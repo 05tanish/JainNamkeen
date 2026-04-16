@@ -1,7 +1,6 @@
 import { Resend } from 'resend';
-import logger from './logger.js';
+import { logger } from './logger.js';
 
-// ── Lazy client — don't crash at import if key is missing ────────────────────
 let _resend = null;
 
 const getResend = () => {
@@ -17,7 +16,6 @@ const getResend = () => {
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'Sangam Namkeen <noreply@sangamnamkeen.com>';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// ── Disposable email domain blocklist ────────────────────────────────────────
 const BLOCKED_DOMAINS = new Set([
     'tempmail.com', 'temp-mail.org', 'guerrillamail.com', 'mailinator.com',
     '10minutemail.com', 'throwaway.email', 'maildrop.cc', 'getnada.com',
@@ -34,15 +32,11 @@ const BLOCKED_DOMAINS = new Set([
     'spambox.us', 'nospam.ze.tc', 'zoemail.org',
 ]);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Returns true if the email's domain is a known disposable provider. */
 export const isEmailBlocked = (email) => {
     const domain = email.split('@')[1]?.toLowerCase();
     return domain ? BLOCKED_DOMAINS.has(domain) : true;
 };
 
-/** Validates email format and blocks disposable domains. */
 export const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) return { valid: false, reason: 'Invalid email format' };
@@ -50,7 +44,6 @@ export const validateEmail = (email) => {
     return { valid: true };
 };
 
-// ── Shared email layout helpers ───────────────────────────────────────────────
 const emailWrapper = (content) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -78,11 +71,6 @@ const emailWrapper = (content) => `
 </body>
 </html>`;
 
-// ── Email functions ───────────────────────────────────────────────────────────
-
-/**
- * Send email verification link.
- */
 export const sendVerificationEmail = async (email, name, verificationToken) => {
     const verificationUrl = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
     const html = emailWrapper(`
@@ -127,9 +115,6 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
     }
 };
 
-/**
- * Send password reset email.
- */
 export const sendPasswordResetEmail = async (email, name, resetToken) => {
     const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
     const html = emailWrapper(`
@@ -174,9 +159,6 @@ export const sendPasswordResetEmail = async (email, name, resetToken) => {
     }
 };
 
-/**
- * Send order confirmation email.
- */
 export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
     const { orderId, items, totalAmount, shippingAddress } = orderDetails;
 
@@ -258,10 +240,4 @@ export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
     }
 };
 
-export default {
-    validateEmail,
-    isEmailBlocked,
-    sendVerificationEmail,
-    sendPasswordResetEmail,
-    sendOrderConfirmationEmail,
-};
+export { sendVerificationEmail, sendPasswordResetEmail, sendOrderConfirmationEmail, validateEmail, isEmailBlocked };

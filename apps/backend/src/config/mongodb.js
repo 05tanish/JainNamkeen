@@ -1,17 +1,15 @@
 import mongoose from 'mongoose';
-import logger from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 
 const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGODB_URI, {
-            // These options are defaults in Mongoose 6+ but explicit for clarity
-            serverSelectionTimeoutMS: 5000,  // Fail fast if MongoDB is unreachable
+            serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
         });
 
         logger.info(`✅ MongoDB Connected: ${conn.connection.host}`);
 
-        // Graceful disconnect on process termination
         process.on('SIGINT', async () => {
             await mongoose.connection.close();
             logger.info('MongoDB connection closed due to app termination');
@@ -22,4 +20,4 @@ const connectDB = async () => {
     }
 };
 
-export default connectDB;
+export { connectDB };

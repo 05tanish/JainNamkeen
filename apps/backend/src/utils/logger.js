@@ -1,4 +1,5 @@
 import winston from 'winston';
+import LokiTransport from 'winston-loki';
 import path from 'path';
 import fs from 'fs';
 
@@ -9,22 +10,16 @@ const levels = { error: 0, warn: 1, info: 2, http: 3, debug: 4 };
 const colors = { error: 'red', warn: 'yellow', info: 'green', http: 'magenta', debug: 'blue' };
 winston.addColors(colors);
 
-// ── Logs directory — use process.cwd() not __dirname ──────────────────────────
-// __dirname here = apps/backend/src/utils/, so ../../logs = apps/logs/ (wrong)
-// process.cwd() = apps/backend/ → logs/ = apps/backend/logs/ (correct)
 const logsDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
-// ── Console format ────────────────────────────────────────────────────────────
 const consoleFormat = printf(({ level, message, timestamp: ts, stack, ...meta }) => {
     const metaStr = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : '';
     return `${ts} [${level}]: ${stack || message}${metaStr}`;
 });
 
-// ── Level ─────────────────────────────────────────────────────────────────────
 const level = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 
-// ── Transports ────────────────────────────────────────────────────────────────
 const transports = [
     new winston.transports.Console({
         format: combine(
@@ -35,6 +30,27 @@ const transports = [
         ),
     }),
 ];
+
+if (process.env.LOKI_HOST) {
+    const lokiTransport = new LokiTransport({
+        host: process.env.LOKI_HOST,
+        labels: {
+            app: 'ecommerce-backend',
+            env: process.env.NODE_ENV || 'development',
+            service: 'api'
+        },
+        json: true,
+        format: json(),
+        replaceTimestamp: true,
+        onConnectionError: (err) => console.error('Loki connection error:', err),
+        ...(process.env.LOKI_USERNAME && process.env.LOKI_PASSWORD && {
+            basicAuth: `${process.env.LOKI_USERNAME}:${process.env.LOKI_PASSWORD}`
+        })
+    });
+    
+    transports.push(lokiTransport);
+    console.log('✅ Grafana Loki logging enabled');
+}
 
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_FILE_LOGGING === 'true') {
     const fileCommon = combine(
@@ -58,18 +74,10 @@ if (process.env.NODE_ENV === 'production' || process.env.ENABLE_FILE_LOGGING ===
     );
 }
 
-// ── Logger ────────────────────────────────────────────────────────────────────
 const logger = winston.createLogger({ level, levels, transports, exitOnError: false });
 
-// Morgan-compatible stream
 logger.stream = { write: (msg) => logger.http(msg.trim()) };
 
-// ── Structured helpers ────────────────────────────────────────────────────────
-
-/**
- * Log an HTTP request/response pair (called from requestLogger middleware).
- * Uses req.socket (Node 18+) — req.connection is deprecated.
- */
 logger.logRequest = (req, res, duration) => {
     logger.http('HTTP Request', {
         method: req.method,
@@ -82,9 +90,6 @@ logger.logRequest = (req, res, duration) => {
     });
 };
 
-/**
- * Log an application error with optional request context.
- */
 logger.logError = (error, req = null) => {
     const log = {
         name: error.name,
@@ -100,18 +105,12 @@ logger.logError = (error, req = null) => {
     logger.error('Application Error', log);
 };
 
-/**
- * Log a security-relevant event (auth failures, CORS blocks, etc.).
- */
 logger.logSecurity = (event, details) => {
     logger.warn('Security Event', { event, ...details, timestamp: new Date().toISOString() });
 };
 
-/**
- * Log an audit event (admin action, data mutation, etc.).
- */
 logger.logAudit = (action, details) => {
     logger.info('Audit Event', { action, ...details, timestamp: new Date().toISOString() });
 };
 
-export default logger;
+export { logger };

@@ -1,6 +1,6 @@
 import User from '../users/user.model.js';
 import { generateToken } from '../../utils/JWT.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class AuthService {
     /**

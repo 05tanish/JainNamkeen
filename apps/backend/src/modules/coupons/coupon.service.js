@@ -1,5 +1,5 @@
 import Coupon from './coupon.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class CouponService {
     static async createCoupon(data) {

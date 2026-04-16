@@ -1,6 +1,6 @@
 import Product from './product.model.js';
 import { v2 as cloudinary } from 'cloudinary';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 const VALID_SORTS = ['newest', 'price_asc', 'price_desc', 'popular', 'name_asc'];
 

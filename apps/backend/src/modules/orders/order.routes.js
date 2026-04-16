@@ -1,8 +1,8 @@
 import express from 'express';
 import { z } from 'zod';
-import auth from '../../middleware/auth.js';
+import { auth } from '../../middleware/auth.js';
 import { role } from '../../middleware/role.js';
-import validate from '../../middleware/validate.js';
+import { validate } from '../../middleware/validate.js';
 import {
     createOrderSchema,
     updateOrderStatusSchema,

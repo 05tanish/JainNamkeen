@@ -1,7 +1,7 @@
 import express from 'express';
-import auth from '../../middleware/auth.js';
+import { auth } from '../../middleware/auth.js';
 import { role } from '../../middleware/role.js';
-import validate from '../../middleware/validate.js';
+import { validate } from '../../middleware/validate.js';
 import { couponSchema } from './coupon.schema.js';
 import { createCoupon, getCoupons, updateCoupon, deleteCoupon, toggleCouponStatus, getActiveCoupons } from './coupon.controller.js';
 

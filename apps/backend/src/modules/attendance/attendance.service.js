@@ -1,6 +1,6 @@
 import Attendance from './attendance.model.js';
 import User from '../users/user.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class AttendanceService {
     /**

@@ -1,5 +1,5 @@
 import Category from './category.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class CategoryService {
     static async getCategories() {

@@ -1,16 +1,9 @@
-import ApiError from '../utils/ApiError.js';
-import logger from '../utils/logger.js';
+import { ApiError } from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 
-/**
- * Centralized error handling middleware.
- * Recognises ApiError instances and normalises Mongoose/JWT errors into a
- * consistent JSON envelope: { success, statusCode, message, errors }.
- */
-const errorMiddleware = (err, req, res, next) => {
-    // Log every error with request context
+export const errorMiddleware = (err, req, res, next) => {
     logger.logError(err, req);
 
-    // ── Already a known operational ApiError ──────────────────────────────────
     if (err instanceof ApiError) {
         return res.status(err.statusCode).json({
             success: false,
@@ -20,7 +13,6 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // ── Mongoose: bad ObjectId ────────────────────────────────────────────────
     if (err.name === 'CastError') {
         return res.status(400).json({
             success: false,
@@ -30,7 +22,6 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // ── Mongoose: duplicate key ───────────────────────────────────────────────
     if (err.code === 11000) {
         const field = Object.keys(err.keyValue || {})[0] || 'field';
         const value = err.keyValue?.[field];
@@ -42,7 +33,6 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // ── Mongoose: validation error ────────────────────────────────────────────
     if (err.name === 'ValidationError') {
         const errors = Object.values(err.errors).map((e) => e.message);
         return res.status(400).json({
@@ -53,7 +43,6 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // ── JWT errors ────────────────────────────────────────────────────────────
     if (err.name === 'JsonWebTokenError') {
         return res.status(401).json({
             success: false,
@@ -71,7 +60,6 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // ── CORS error ────────────────────────────────────────────────────────────
     if (err.message && err.message.includes('Not allowed by CORS')) {
         return res.status(403).json({
             success: false,
@@ -81,7 +69,6 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // ── Default 500 ───────────────────────────────────────────────────────────
     const statusCode = err.statusCode || err.status || 500;
     const message =
         process.env.NODE_ENV === 'production'
@@ -96,5 +83,3 @@ const errorMiddleware = (err, req, res, next) => {
         ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
     });
 };
-
-export default errorMiddleware;

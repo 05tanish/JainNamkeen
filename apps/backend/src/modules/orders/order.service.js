@@ -1,6 +1,6 @@
 import Order from './order.model.js';
 import Product from '../products/product.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 const VALID_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
 

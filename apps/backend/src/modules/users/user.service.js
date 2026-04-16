@@ -1,5 +1,5 @@
 import User from './user.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 const VALID_ROLES = ['user', 'staff', 'admin'];
 

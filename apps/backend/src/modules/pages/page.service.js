@@ -1,5 +1,5 @@
 import Page from './page.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class PageService {
     static async getPages() {

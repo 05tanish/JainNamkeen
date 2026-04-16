@@ -1,5 +1,5 @@
 import Banner from './banner.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class BannerService {
     static async createBanner(data, file) {

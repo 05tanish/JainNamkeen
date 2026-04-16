@@ -1,12 +1,10 @@
 import 'dotenv/config';
 import { z } from 'zod';
-import connectDB from './config/mongodb.js';
+import { connectDB } from './config/mongodb.js';
 import { connectRedis } from './config/Redis.js';
 import { connectPostgres } from './config/Postgrsedb.js';
-import app from './App.js';
+import { app } from './App.js';
 
-// ── Environment validation ────────────────────────────────────────────────────
-// Must run BEFORE importing logger so we can print errors if logger itself fails
 const envSchema = z.object({
     PORT: z.string().default('5000'),
     MONGODB_URI: z.string().min(10, 'MONGODB_URI is required and must be a valid URI'),
@@ -22,17 +20,14 @@ const envSchema = z.object({
 
 const envResult = envSchema.safeParse(process.env);
 if (!envResult.success) {
-    // process.stderr avoids missing logger dependency at boot time
     process.stderr.write(
         `❌ Invalid environment variables:\n${JSON.stringify(envResult.error.format(), null, 2)}\n`
     );
     process.exit(1);
 }
 
-// Import logger AFTER env validation succeeds (logger reads process.env.NODE_ENV)
-const { default: logger } = await import('./utils/logger.js');
+const { logger } = await import('./utils/logger.js');
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
 const start = async () => {
     await connectDB();
     await connectPostgres();
@@ -44,14 +39,12 @@ const start = async () => {
         logger.info(`📡 API: http://localhost:${PORT}/api`);
     });
 
-    // ── Graceful shutdown ─────────────────────────────────────────────────────
     const shutdown = (signal) => {
         logger.info(`${signal} received — shutting down gracefully`);
         server.close(() => {
             logger.info('✅ HTTP server closed');
             process.exit(0);
         });
-        // Force exit if close takes > 10s
         setTimeout(() => {
             logger.error('Forced shutdown after 10s timeout');
             process.exit(1);
@@ -61,7 +54,6 @@ const start = async () => {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT', () => shutdown('SIGINT'));
 
-    // Catch unhandled rejections (e.g. forgotten await) — log and shut down
     process.on('unhandledRejection', (reason) => {
         logger.error(`Unhandled Promise Rejection: ${reason?.message || reason}`, {
             stack: reason?.stack,
@@ -69,7 +61,6 @@ const start = async () => {
         server.close(() => process.exit(1));
     });
 
-    // Catch synchronous uncaught exceptions
     process.on('uncaughtException', (err) => {
         logger.error(`Uncaught Exception: ${err.message}`, { stack: err.stack });
         process.exit(1);

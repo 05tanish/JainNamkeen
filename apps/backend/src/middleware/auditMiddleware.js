@@ -1,16 +1,8 @@
-import { createAuditLog } from '../utils/auditLogger.js';
-import logger from '../utils/logger.js';
+import { createAuditLog, logSecurityEvent } from '../utils/auditLogger.js';
+import { logger } from '../utils/logger.js';
 
-/**
- * Helper — resolve the client IP safely (req.connection is deprecated in Node 18+).
- */
 const getIp = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
 
-/**
- * Generic audit middleware — logs any admin action on a resource.
- *
- * Usage: router.post('/', auth, role('admin'), auditMiddleware('PRODUCT_CREATE', 'Product'), createProduct)
- */
 export const auditMiddleware = (action, resource) => (req, res, next) => {
     const startTime = Date.now();
     const originalJson = res.json.bind(res);
@@ -44,36 +36,31 @@ export const auditMiddleware = (action, resource) => (req, res, next) => {
     next();
 };
 
-/**
- * Security audit middleware — logs every 401 and 403 response automatically.
- * Add once to your app in App.js to cover all routes.
- */
 export const securityAuditMiddleware = (req, res, next) => {
     const startTime = Date.now();
     const originalStatus = res.status.bind(res);
 
     res.status = function (code) {
         if (code === 401 || code === 403) {
-            const action = code === 401 ? 'UNAUTHORIZED_ACCESS' : 'FORBIDDEN_ACCESS';
+            const event = code === 401 ? 'UNAUTHORIZED_ACCESS' : 'FORBIDDEN_ACCESS';
             const duration = Date.now() - startTime;
 
-            createAuditLog({
+            logSecurityEvent({
                 userId: req.user?._id,
                 userEmail: req.user?.email || req.body?.email,
-                action,
-                resource: 'AUTH',
-                method: req.method,
-                endpoint: req.originalUrl,
+                event,
                 ipAddress: getIp(req),
                 userAgent: req.get('user-agent'),
-                metadata: { attemptedResource: req.originalUrl, userRole: req.user?.role },
-                status: 'WARNING',
-                duration,
-            }).catch(err =>
-                logger.error('securityAuditMiddleware: failed to create log', { error: err.message })
-            );
+                endpoint: req.originalUrl,
+                metadata: { 
+                    attemptedResource: req.originalUrl, 
+                    userRole: req.user?.role,
+                    duration 
+                },
+                severity: 'WARNING'
+            });
 
-            logger.logSecurity(action, {
+            logger.logSecurity(event, {
                 endpoint: req.originalUrl,
                 ip: getIp(req),
                 userId: req.user?._id,
@@ -85,13 +72,6 @@ export const securityAuditMiddleware = (req, res, next) => {
     next();
 };
 
-/**
- * Login-specific audit middleware — logs USER_LOGIN and USER_LOGIN_FAILED.
- * Add to POST /api/auth/login route only.
- *
- * NOTE: auth controller uses `sendTokenResponse` which structures response as
- *       { success, message, data: { _id, ... } } — so we read body?.data?._id.
- */
 export const loginAuditMiddleware = (req, res, next) => {
     const startTime = Date.now();
     const originalJson = res.json.bind(res);
@@ -119,10 +99,14 @@ export const loginAuditMiddleware = (req, res, next) => {
         );
 
         if (!isSuccess) {
-            logger.logSecurity('LOGIN_FAILED', {
-                email: req.body?.email,
-                ip: getIp(req),
-                reason: body?.message,
+            logSecurityEvent({
+                userEmail: req.body?.email,
+                event: 'LOGIN_FAILED',
+                ipAddress: getIp(req),
+                userAgent: req.get('user-agent'),
+                endpoint: req.originalUrl,
+                metadata: { reason: body?.message, duration },
+                severity: 'WARNING'
             });
         }
 
@@ -132,10 +116,6 @@ export const loginAuditMiddleware = (req, res, next) => {
     next();
 };
 
-/**
- * Change audit middleware — logs data mutations (POST/PUT/PATCH/DELETE).
- * Attach to individual admin routes where detailed change tracking is required.
- */
 export const changeAuditMiddleware = (resource) => (req, res, next) => {
     const startTime = Date.now();
     const originalJson = res.json.bind(res);
@@ -175,11 +155,4 @@ export const changeAuditMiddleware = (resource) => (req, res, next) => {
     };
 
     next();
-};
-
-export default {
-    auditMiddleware,
-    securityAuditMiddleware,
-    loginAuditMiddleware,
-    changeAuditMiddleware,
 };

@@ -1,6 +1,6 @@
 import Notification from './notification.model.js';
 import User from '../users/user.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class NotificationService {
     static async createNotification({ title, body, type, recipients, subject }, createdBy) {

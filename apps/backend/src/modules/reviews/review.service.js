@@ -1,6 +1,6 @@
 import Review from './review.model.js';
 import Order from '../orders/order.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class ReviewService {
     static async getProductReviews(productId) {

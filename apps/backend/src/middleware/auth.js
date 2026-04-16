@@ -1,17 +1,10 @@
 import User from '../modules/users/user.model.js';
 import { extractToken } from '../utils/TokenHelper.js';
 import { verifyToken } from '../utils/JWT.js';
-import ApiError from '../utils/ApiError.js';
+import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-/**
- * Authentication middleware.
- * - Extracts JWT from Authorization header or cookie
- * - Verifies signature and expiry
- * - Loads user from DB and attaches to req.user
- * - Blocks deactivated AND suspended users
- */
-const auth = asyncHandler(async (req, res, next) => {
+export const auth = asyncHandler(async (req, res, next) => {
     const token = extractToken(req);
     const decoded = verifyToken(token);
 
@@ -28,5 +21,3 @@ const auth = asyncHandler(async (req, res, next) => {
     req.user = user;
     next();
 });
-
-export default auth;

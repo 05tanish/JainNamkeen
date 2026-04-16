@@ -1,6 +1,6 @@
 import Cart from './cart.model.js';
 import Product from '../products/product.model.js';
-import ApiError from '../../utils/ApiError.js';
+import { ApiError } from '../../utils/ApiError.js';
 
 class CartService {
     static async getCart(userId) {

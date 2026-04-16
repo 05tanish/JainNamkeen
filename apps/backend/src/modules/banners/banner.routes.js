@@ -2,9 +2,9 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import auth from '../../middleware/auth.js';
+import { auth } from '../../middleware/auth.js';
 import { role } from '../../middleware/role.js';
-import validate from '../../middleware/validate.js';
+import { validate } from '../../middleware/validate.js';
 import { bannerSchema } from './banner.schema.js';
 import {
     createBanner, getBanners, updateBanner,
