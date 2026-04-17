@@ -1,76 +1,106 @@
-import Order from '../orders/order.model.js';
-import Product from '../products/product.model.js';
-import User from '../users/user.model.js';
+import { prisma } from '../../config/Postgrsedb.js';
 
-class AdminService {
-    static async getConversionRate() {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+export const getConversionRate = async () => {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const [totalUsers, usersWithOrders, monthlyOrders] = await Promise.all([
-            User.countDocuments({ role: 'user' }),
-            Order.distinct('user'),
-            Order.aggregate([
-                { $match: { createdAt: { $gte: sixMonthsAgo } } },
-                {
-                    $group: {
-                        _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-                        orders: { $sum: 1 },
-                        revenue: { $sum: '$totalAmount' },
-                    },
-                },
-                { $sort: { _id: 1 } },
-            ]),
-        ]);
+    const [totalUsers, usersWithOrders, orders] = await Promise.all([
+        prisma.user.count({ where: { role: 'USER' } }),
+        prisma.order.findMany({
+            select: { userId: true },
+            distinct: ['userId']
+        }),
+        prisma.order.findMany({
+            where: { createdAt: { gte: sixMonthsAgo } },
+            select: {
+                createdAt: true,
+                totalAmount: true
+            }
+        })
+    ]);
 
-        const conversionRate = totalUsers > 0
-            ? parseFloat(((usersWithOrders.length / totalUsers) * 100).toFixed(1))
-            : 0;
+    const monthlyOrders = orders.reduce((acc, order) => {
+        const month = order.createdAt.toISOString().substring(0, 7);
+        if (!acc[month]) {
+            acc[month] = { _id: month, orders: 0, revenue: 0 };
+        }
+        acc[month].orders += 1;
+        acc[month].revenue += Number(order.totalAmount);
+        return acc;
+    }, {});
 
-        return { conversionRate, totalUsers, usersWithOrders: usersWithOrders.length, monthlyOrders };
-    }
+    const monthlyOrdersArray = Object.values(monthlyOrders).sort((a, b) => a._id.localeCompare(b._id));
 
-    static async getLowStockAlerts() {
-        const products = await Product.find({
-            $expr: { $lte: ['$stock', '$lowStockThreshold'] },
+    const conversionRate = totalUsers > 0
+        ? parseFloat(((usersWithOrders.length / totalUsers) * 100).toFixed(1))
+        : 0;
+
+    return {
+        conversionRate,
+        totalUsers,
+        usersWithOrders: usersWithOrders.length,
+        monthlyOrders: monthlyOrdersArray
+    };
+};
+
+export const getLowStockAlerts = async () => {
+    const products = await prisma.product.findMany({
+        where: {
             isActive: true,
-        }).populate('category', 'name').sort({ stock: 1 });
+            stock: { lte: prisma.product.fields.lowStockThreshold }
+        },
+        include: {
+            category: { select: { name: true } }
+        },
+        orderBy: { stock: 'asc' }
+    });
 
-        return {
-            count: products.length,
-            products: products.map(p => ({
-                _id: p._id,
-                name: p.name,
-                stock: p.stock,
-                threshold: p.lowStockThreshold,
-                category: p.category?.name,
-                price: p.price,
-            })),
-        };
-    }
+    return {
+        count: products.length,
+        products: products.map(p => ({
+            _id: p.id,
+            name: p.name,
+            stock: p.stock,
+            threshold: p.lowStockThreshold,
+            category: p.category?.name,
+            price: p.price
+        }))
+    };
+};
 
-    static async getRefundStats() {
-        const [refundAgg, cancelledOrders, totalOrders, recentRefunds] = await Promise.all([
-            Order.aggregate([
-                { $match: { refundStatus: { $ne: 'none' } } },
-                { $group: { _id: '$refundStatus', count: { $sum: 1 }, totalAmount: { $sum: '$refundAmount' } } },
-            ]),
-            Order.countDocuments({ status: 'cancelled' }),
-            Order.countDocuments(),
-            Order.find({ refundStatus: { $ne: 'none' } })
-                .populate('user', 'name email')
-                .sort({ updatedAt: -1 })
-                .limit(10),
-        ]);
+export const getRefundStats = async () => {
+    const [refundOrders, cancelledOrders, totalOrders, recentRefunds] = await Promise.all([
+        prisma.order.findMany({
+            where: { refundStatus: { not: 'NONE' } },
+            select: { refundStatus: true, refundAmount: true }
+        }),
+        prisma.order.count({ where: { status: 'CANCELLED' } }),
+        prisma.order.count(),
+        prisma.order.findMany({
+            where: { refundStatus: { not: 'NONE' } },
+            include: {
+                user: { select: { name: true, email: true } }
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 10
+        })
+    ]);
 
-        return {
-            refundsByStatus: refundAgg,
-            cancelledOrders,
-            returnRate: totalOrders > 0 ? parseFloat(((cancelledOrders / totalOrders) * 100).toFixed(1)) : 0,
-            totalOrders,
-            recentRefunds,
-        };
-    }
-}
+    const refundsByStatus = refundOrders.reduce((acc, order) => {
+        const status = order.refundStatus;
+        if (!acc[status]) {
+            acc[status] = { _id: status, count: 0, totalAmount: 0 };
+        }
+        acc[status].count += 1;
+        acc[status].totalAmount += Number(order.refundAmount || 0);
+        return acc;
+    }, {});
 
-export default AdminService;
+    return {
+        refundsByStatus: Object.values(refundsByStatus),
+        cancelledOrders,
+        returnRate: totalOrders > 0 ? parseFloat(((cancelledOrders / totalOrders) * 100).toFixed(1)) : 0,
+        totalOrders,
+        recentRefunds
+    };
+};

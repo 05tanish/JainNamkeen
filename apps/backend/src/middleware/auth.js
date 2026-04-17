@@ -1,4 +1,4 @@
-import User from '../modules/users/user.model.js';
+import { prisma } from '../config/Postgrsedb.js';
 import { extractToken } from '../utils/TokenHelper.js';
 import { verifyToken } from '../utils/JWT.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -8,7 +8,10 @@ export const auth = asyncHandler(async (req, res, next) => {
     const token = extractToken(req);
     const decoded = verifyToken(token);
 
-    const user = await User.findById(decoded.id).select('+isSuspended +suspendReason');
+    const user = await prisma.user.findUnique({
+        where: { id: decoded.id }
+    });
+
     if (!user) throw new ApiError(401, 'User no longer exists');
     if (!user.isActive) throw new ApiError(401, 'Your account has been deactivated. Contact support.');
     if (user.isSuspended) {

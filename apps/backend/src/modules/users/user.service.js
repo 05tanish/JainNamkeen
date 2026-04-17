@@ -1,114 +1,119 @@
-import User from './user.model.js';
+import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-const VALID_ROLES = ['user', 'staff', 'admin'];
+const VALID_ROLES = ['USER', 'STAFF', 'ADMIN'];
 
-class UserService {
-    /**
-     * List users with pagination, search, and role filter.
-     */
-    static async getUsers({ role, search, page = 1, limit = 20 }) {
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
-        if (pageNum < 1) throw new ApiError(400, 'Page must be at least 1');
-        if (limitNum < 1 || limitNum > 100) throw new ApiError(400, 'Limit must be between 1 and 100');
-        if (role && !VALID_ROLES.includes(role)) throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
+export const getUsers = async ({ role, search, page = 1, limit = 20 }) => {
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    if (pageNum < 1) throw new ApiError(400, 'Page must be at least 1');
+    if (limitNum < 1 || limitNum > 100) throw new ApiError(400, 'Limit must be between 1 and 100');
+    if (role && !VALID_ROLES.includes(role.toUpperCase())) {
+        throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
+    }
 
-        const query = {};
-        if (role) query.role = role;
-        if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } },
-                { phone: { $regex: search, $options: 'i' } },
-            ];
+    const where = {};
+    if (role) where.role = role.toUpperCase();
+    if (search) {
+        where.OR = [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } }
+        ];
+    }
+
+    const [total, users] = await Promise.all([
+        prisma.user.count({ where }),
+        prisma.user.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip: (pageNum - 1) * limitNum,
+            take: limitNum
+        })
+    ]);
+
+    return { users, total, page: pageNum, pages: Math.ceil(total / limitNum) };
+};
+
+export const getUser = async (id) => {
+    const user = await prisma.user.findUnique({
+        where: { id }
+    });
+    if (!user) throw new ApiError(404, 'User not found');
+    return user;
+};
+
+export const updateUserRole = async (id, role) => {
+    const roleUpper = role.toUpperCase();
+    if (!VALID_ROLES.includes(roleUpper)) {
+        throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
+    }
+
+    const user = await prisma.user.update({
+        where: { id },
+        data: { role: roleUpper }
+    }).catch(() => {
+        throw new ApiError(404, 'User not found');
+    });
+
+    return user;
+};
+
+export const toggleUserStatus = async (id) => {
+    const user = await prisma.user.findUnique({
+        where: { id }
+    });
+
+    if (!user) throw new ApiError(404, 'User not found');
+
+    return prisma.user.update({
+        where: { id },
+        data: { isActive: !user.isActive }
+    });
+};
+
+export const getUserStats = async () => {
+    const [totalUsers, totalStaff, totalAdmins, suspendedUsers] = await Promise.all([
+        prisma.user.count({ where: { role: 'USER' } }),
+        prisma.user.count({ where: { role: 'STAFF' } }),
+        prisma.user.count({ where: { role: 'ADMIN' } }),
+        prisma.user.count({ where: { isSuspended: true } })
+    ]);
+
+    return { totalUsers, totalStaff, totalAdmins, suspendedUsers };
+};
+
+export const suspendUser = async (id, reason) => {
+    const user = await prisma.user.findUnique({
+        where: { id }
+    });
+
+    if (!user) throw new ApiError(404, 'User not found');
+    if (user.isSuspended) throw new ApiError(400, 'User is already suspended');
+
+    return prisma.user.update({
+        where: { id },
+        data: {
+            isSuspended: true,
+            suspendReason: reason || 'No reason provided',
+            suspendedAt: new Date()
         }
+    });
+};
 
-        const [total, users] = await Promise.all([
-            User.countDocuments(query),
-            User.find(query)
-                .sort({ createdAt: -1 })
-                .skip((pageNum - 1) * limitNum)
-                .limit(limitNum),
-        ]);
+export const unsuspendUser = async (id) => {
+    const user = await prisma.user.findUnique({
+        where: { id }
+    });
 
-        return { users, total, page: pageNum, pages: Math.ceil(total / limitNum) };
-    }
+    if (!user) throw new ApiError(404, 'User not found');
 
-    /**
-     * Get a single user by ID.
-     */
-    static async getUser(id) {
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
-        const user = await User.findById(id);
-        if (!user) throw new ApiError(404, 'User not found');
-        return user;
-    }
-
-    /**
-     * Change a user's role.
-     */
-    static async updateUserRole(id, role) {
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
-        if (!VALID_ROLES.includes(role)) throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
-        const user = await User.findByIdAndUpdate(id, { role }, { new: true });
-        if (!user) throw new ApiError(404, 'User not found');
-        return user;
-    }
-
-    /**
-     * Toggle user active/inactive status.
-     */
-    static async toggleUserStatus(id) {
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
-        const user = await User.findById(id);
-        if (!user) throw new ApiError(404, 'User not found');
-        user.isActive = !user.isActive;
-        await user.save();
-        return user;
-    }
-
-    /**
-     * Get aggregate user stats.
-     */
-    static async getUserStats() {
-        const [totalUsers, totalStaff, totalAdmins, suspendedUsers] = await Promise.all([
-            User.countDocuments({ role: 'user' }),
-            User.countDocuments({ role: 'staff' }),
-            User.countDocuments({ role: 'admin' }),
-            User.countDocuments({ isSuspended: true }),
-        ]);
-        return { totalUsers, totalStaff, totalAdmins, suspendedUsers };
-    }
-
-    /**
-     * Suspend a user.
-     */
-    static async suspendUser(id, reason) {
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
-        const user = await User.findById(id);
-        if (!user) throw new ApiError(404, 'User not found');
-        if (user.isSuspended) throw new ApiError(400, 'User is already suspended');
-        user.isSuspended = true;
-        user.suspendReason = reason || 'No reason provided';
-        user.suspendedAt = new Date();
-        await user.save();
-        return user;
-    }
-
-    /**
-     * Unsuspend a user.
-     */
-    static async unsuspendUser(id) {
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
-        const user = await User.findById(id);
-        if (!user) throw new ApiError(404, 'User not found');
-        user.isSuspended = false;
-        user.suspendReason = '';
-        user.suspendedAt = null;
-        await user.save();
-        return user;
-    }
-}
-
-export default UserService;
+    return prisma.user.update({
+        where: { id },
+        data: {
+            isSuspended: false,
+            suspendReason: null,
+            suspendedAt: null
+        }
+    });
+};

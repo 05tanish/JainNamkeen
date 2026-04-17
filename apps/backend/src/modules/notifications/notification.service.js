@@ -1,5 +1,5 @@
 import Notification from './notification.model.js';
-import User from '../users/user.model.js';
+import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
 class NotificationService {
@@ -35,10 +35,13 @@ class NotificationService {
     }
 
     static async getUserNotifications(user) {
-        // readNotifications may not exist on old user docs — guard with || []
-        const userData = await User.findById(user._id).select('readNotifications');
+        // Get user's read notifications from Prisma
+        const userData = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { readNotifications: true }
+        });
         const readIds = userData?.readNotifications || [];
-        const isStaff = ['staff', 'admin'].includes(user.role);
+        const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
         const query = {
             isSent: true,
             type: 'broadcast',
@@ -52,15 +55,26 @@ class NotificationService {
     }
 
     static async markAllAsRead(user) {
-        const isStaff = ['staff', 'admin'].includes(user.role);
+        const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
         const notifications = await Notification.find({
             isSent: true,
             type: 'broadcast',
             $or: [{ recipients: 'all' }, { recipients: isStaff ? 'staff' : 'users' }],
         }).select('_id');
-        const ids = notifications.map(n => n._id);
-        await User.findByIdAndUpdate(user._id, {
-            $addToSet: { readNotifications: { $each: ids } },
+        const ids = notifications.map(n => n._id.toString());
+        
+        // Update user's readNotifications in Prisma
+        const currentUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { readNotifications: true }
+        });
+        
+        const existingReadIds = currentUser?.readNotifications || [];
+        const newReadIds = [...new Set([...existingReadIds, ...ids])];
+        
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { readNotifications: newReadIds }
         });
     }
 }

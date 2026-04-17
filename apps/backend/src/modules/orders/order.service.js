@@ -1,60 +1,72 @@
-import Order from './order.model.js';
-import Product from '../products/product.model.js';
+import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-const VALID_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
 class OrderService {
     static async createOrder(userId, { items, totalAmount, shippingAddress, paymentMethod, couponCode }) {
         if (!items || items.length === 0) throw new ApiError(400, 'No items in order');
 
-        // Validate shipping address completeness
         const addr = shippingAddress;
         if (!addr?.name || !addr?.phone || !addr?.street || !addr?.city || !addr?.state || !addr?.pincode) {
             throw new ApiError(400, 'Complete shipping address is required (name, phone, street, city, state, pincode)');
         }
 
-        // Validate products and calculate subtotal
         let calculatedSubtotal = 0;
+        const orderItems = [];
+
         for (const item of items) {
-            if (!item.product?.match(/^[0-9a-fA-F]{24}$/)) {
-                throw new ApiError(400, 'Invalid product ID in order items');
-            }
-            const product = await Product.findById(item.product);
+            const product = await prisma.product.findUnique({
+                where: { id: item.product }
+            });
+
             if (!product) throw new ApiError(404, `Product ${item.product} not found`);
             if (!product.isActive) throw new ApiError(400, `Product "${product.name}" is not available`);
             if (item.quantity > product.stock) {
                 throw new ApiError(400, `Insufficient stock for "${product.name}". Available: ${product.stock}`);
             }
-            calculatedSubtotal += product.price * item.quantity;
+
+            calculatedSubtotal += Number(product.price) * item.quantity;
+            orderItems.push({
+                productId: product.id,
+                name: product.name,
+                price: product.price,
+                quantity: item.quantity,
+                image: Array.isArray(product.images) && product.images.length > 0 
+                    ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url)
+                    : null
+            });
         }
 
-        // Delivery charge
         const deliveryCharge = calculatedSubtotal >= 500 ? 0 : 40;
 
-        // Coupon discount
         let discount = 0;
         if (couponCode) {
-            const { default: Coupon } = await import('../coupons/coupon.model.js');
-            const coupon = await Coupon.findOne({
-                code: couponCode.toUpperCase(),
-                isActive: true,
-                validUntil: { $gte: new Date() },
+            const coupon = await prisma.coupon.findUnique({
+                where: {
+                    code: couponCode.toUpperCase()
+                }
             });
-            if (coupon && calculatedSubtotal >= (coupon.minOrderAmount || 0)) {
-                // Model enum uses 'flat', not 'fixed' — CRITICAL fix
-                discount = coupon.discountType === 'flat'
-                    ? coupon.discountValue
-                    : Math.min(
-                        (calculatedSubtotal * coupon.discountValue) / 100,
-                        coupon.maxDiscount || Infinity
-                    );
+
+            if (coupon && coupon.isActive && new Date(coupon.validUntil) >= new Date()) {
+                if (calculatedSubtotal >= Number(coupon.minOrderAmount || 0)) {
+                    discount = coupon.discountType === 'FLAT'
+                        ? Number(coupon.discountValue)
+                        : Math.min(
+                            (calculatedSubtotal * Number(coupon.discountValue)) / 100,
+                            coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity
+                        );
+
+                    await prisma.coupon.update({
+                        where: { id: coupon.id },
+                        data: { usedCount: { increment: 1 } }
+                    });
+                }
             }
         }
 
         const calculatedTotal = Math.max(0, calculatedSubtotal + deliveryCharge - discount);
 
-        // Allow ±1 rounding tolerance
         if (typeof totalAmount === 'number' && Math.abs(totalAmount - calculatedTotal) > 1) {
             throw new ApiError(400, 'Order total mismatch', [
                 `Expected: ₹${calculatedTotal}`,
@@ -63,23 +75,46 @@ class OrderService {
             ]);
         }
 
-        const order = await Order.create({
-            user: userId,
-            items,
-            subtotal: calculatedSubtotal,
-            discount,
-            couponCode: couponCode?.toUpperCase() || '',
-            totalAmount: calculatedTotal,
-            shippingAddress,
-            paymentMethod,
-            statusHistory: [{ status: 'pending' }],
+        const order = await prisma.order.create({
+            data: {
+                userId,
+                subtotal: calculatedSubtotal,
+                discount,
+                couponCode: couponCode?.toUpperCase() || null,
+                totalAmount: calculatedTotal,
+                shippingName: addr.name,
+                shippingPhone: addr.phone,
+                shippingStreet: addr.street,
+                shippingCity: addr.city,
+                shippingState: addr.state,
+                shippingPincode: addr.pincode,
+                paymentMethod: paymentMethod?.toUpperCase() || 'COD',
+                items: {
+                    create: orderItems
+                },
+                statusHistory: {
+                    create: {
+                        status: 'PENDING',
+                        changedBy: userId
+                    }
+                }
+            },
+            include: {
+                items: true,
+                user: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
         });
 
-        // Decrement stock in parallel
         await Promise.all(
             items.map(item =>
-                Product.findByIdAndUpdate(item.product, {
-                    $inc: { stock: -item.quantity, totalSold: item.quantity },
+                prisma.product.update({
+                    where: { id: item.product },
+                    data: {
+                        stock: { decrement: item.quantity },
+                        totalSold: { increment: item.quantity }
+                    }
                 })
             )
         );
@@ -88,111 +123,198 @@ class OrderService {
     }
 
     static async getOrders(user, filters) {
-        const query = {};
-        if (user.role === 'user') {
-            query.user = user._id;
+        const where = {};
+        
+        if (user.role === 'USER') {
+            where.userId = user.id;
         } else {
             if (filters.status) {
-                if (!VALID_STATUSES.includes(filters.status)) throw new ApiError(400, 'Invalid status filter');
-                query.status = filters.status;
+                const statusUpper = filters.status.toUpperCase();
+                if (!VALID_STATUSES.includes(statusUpper)) {
+                    throw new ApiError(400, 'Invalid status filter');
+                }
+                where.status = statusUpper;
             }
         }
-        const orders = await Order.find(query).populate('user', 'name email').sort({ createdAt: -1 });
-        return orders;
+
+        return prisma.order.findMany({
+            where,
+            include: {
+                user: { select: { name: true, email: true } },
+                items: true
+            },
+            orderBy: { createdAt: 'desc' }
+        });
     }
 
     static async getOrder(orderId, user) {
-        if (!orderId.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid order ID');
-        const order = await Order.findById(orderId).populate('user', 'name email');
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: { select: { id: true, name: true, email: true } },
+                items: { include: { product: true } }
+            }
+        });
+
         if (!order) throw new ApiError(404, 'Order not found');
-        if (user.role === 'user' && order.user._id.toString() !== user._id.toString()) {
+        
+        if (user.role === 'USER' && order.userId !== user.id) {
             throw new ApiError(403, 'Not authorized to view this order');
         }
+
         return order;
     }
 
     static async updateOrderStatus(orderId, status, changedBy) {
-        if (!orderId.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid order ID');
-        if (!VALID_STATUSES.includes(status)) throw new ApiError(400, `Invalid status. Must be: ${VALID_STATUSES.join(', ')}`);
-        const order = await Order.findById(orderId);
+        const statusUpper = status.toUpperCase();
+        if (!VALID_STATUSES.includes(statusUpper)) {
+            throw new ApiError(400, `Invalid status. Must be: ${VALID_STATUSES.join(', ')}`);
+        }
+
+        const order = await prisma.order.findUnique({
+            where: { id: orderId }
+        });
+
         if (!order) throw new ApiError(404, 'Order not found');
-        order.status = status;
-        order.statusHistory.push({ status, changedBy });
-        await order.save();
-        return order;
+
+        return prisma.order.update({
+            where: { id: orderId },
+            data: {
+                status: statusUpper,
+                statusHistory: {
+                    create: {
+                        status: statusUpper,
+                        changedBy
+                    }
+                }
+            },
+            include: {
+                items: true,
+                user: { select: { name: true, email: true } }
+            }
+        });
     }
 
     static async getOrderStats() {
-        const [totalOrders, pendingOrders, deliveredOrders, revenueAgg, locationStats, refundRequests, cancelledOrders, recentOrders] =
-            await Promise.all([
-                Order.countDocuments(),
-                Order.countDocuments({ status: 'pending' }),
-                Order.countDocuments({ status: 'delivered' }),
-                Order.aggregate([{ $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } }]),
-                Order.aggregate([
-                    { $group: { _id: { city: '$shippingAddress.city', state: '$shippingAddress.state' }, count: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
-                ]),
-                Order.countDocuments({ refundStatus: { $ne: 'none' } }),
-                Order.countDocuments({ status: 'cancelled' }),
-                Order.find().populate('user', 'name email').sort({ createdAt: -1 }).limit(5),
-            ]);
+        const [
+            totalOrders,
+            pendingOrders,
+            deliveredOrders,
+            revenueAgg,
+            refundRequests,
+            cancelledOrders,
+            recentOrders
+        ] = await Promise.all([
+            prisma.order.count(),
+            prisma.order.count({ where: { status: 'PENDING' } }),
+            prisma.order.count({ where: { status: 'DELIVERED' } }),
+            prisma.order.aggregate({
+                _sum: { totalAmount: true }
+            }),
+            prisma.order.count({ where: { refundStatus: { not: 'NONE' } } }),
+            prisma.order.count({ where: { status: 'CANCELLED' } }),
+            prisma.order.findMany({
+                include: { user: { select: { name: true, email: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            })
+        ]);
+
+        const totalRevenue = Number(revenueAgg._sum.totalAmount || 0);
 
         return {
             totalOrders,
             pendingOrders,
             deliveredOrders,
-            totalRevenue: revenueAgg[0]?.totalRevenue ?? 0,
-            totalProfit: (revenueAgg[0]?.totalRevenue ?? 0) * 0.2,
-            locationStats,
+            totalRevenue,
+            totalProfit: totalRevenue * 0.2,
             refundRequests,
             cancelledOrders,
-            recentOrders,
+            recentOrders
         };
     }
 
     static async processRefund(orderId, { refundStatus, refundReason, refundAmount }, adminId) {
-        if (!orderId.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid order ID');
-        const order = await Order.findById(orderId);
+        const order = await prisma.order.findUnique({
+            where: { id: orderId }
+        });
+
         if (!order) throw new ApiError(404, 'Order not found');
-        if (refundAmount && refundAmount > order.totalAmount) {
+        
+        if (refundAmount && refundAmount > Number(order.totalAmount)) {
             throw new ApiError(400, 'Refund amount cannot exceed order total');
         }
-        order.refundStatus = refundStatus;
-        if (refundReason) order.refundReason = refundReason;
-        if (refundAmount) order.refundAmount = refundAmount;
-        if (refundStatus === 'completed') order.refundedAt = new Date();
-        if (['approved', 'completed'].includes(refundStatus) && order.status !== 'cancelled') {
-            order.status = 'cancelled';
-            order.statusHistory.push({ status: 'cancelled', changedBy: adminId });
+
+        const updateData = {
+            refundStatus: refundStatus.toUpperCase()
+        };
+
+        if (refundReason) updateData.refundReason = refundReason;
+        if (refundAmount) updateData.refundAmount = refundAmount;
+        if (refundStatus.toUpperCase() === 'COMPLETED') updateData.refundedAt = new Date();
+
+        if (['APPROVED', 'COMPLETED'].includes(refundStatus.toUpperCase()) && order.status !== 'CANCELLED') {
+            updateData.status = 'CANCELLED';
         }
-        await order.save();
-        return order;
+
+        const updatedOrder = await prisma.order.update({
+            where: { id: orderId },
+            data: updateData
+        });
+
+        if (['APPROVED', 'COMPLETED'].includes(refundStatus.toUpperCase())) {
+            await prisma.orderStatusHistory.create({
+                data: {
+                    orderId,
+                    status: 'CANCELLED',
+                    changedBy: adminId
+                }
+            });
+        }
+
+        return updatedOrder;
     }
 
     static async updateTracking(orderId, { trackingNumber, trackingUrl, carrier }) {
-        if (!orderId.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid order ID');
-        const order = await Order.findById(orderId);
-        if (!order) throw new ApiError(404, 'Order not found');
-        if (trackingNumber) order.trackingNumber = trackingNumber;
-        if (trackingUrl) order.trackingUrl = trackingUrl;
-        if (carrier) order.carrier = carrier;
-        await order.save();
-        return order;
+        const updateData = {};
+        if (trackingNumber) updateData.trackingNumber = trackingNumber;
+        if (trackingUrl) updateData.trackingUrl = trackingUrl;
+        if (carrier) updateData.carrier = carrier;
+
+        return prisma.order.update({
+            where: { id: orderId },
+            data: updateData
+        }).catch(() => {
+            throw new ApiError(404, 'Order not found');
+        });
     }
 
     static async requestReturn(orderId, refundReason, user) {
-        if (!orderId.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid order ID');
-        const order = await Order.findById(orderId);
+        const order = await prisma.order.findUnique({
+            where: { id: orderId }
+        });
+
         if (!order) throw new ApiError(404, 'Order not found');
-        if (user.role === 'user' && order.user.toString() !== user._id.toString()) {
+        
+        if (user.role === 'USER' && order.userId !== user.id) {
             throw new ApiError(403, 'Not authorized');
         }
-        if (order.status !== 'delivered') throw new ApiError(400, 'Only delivered orders can be returned');
-        if (order.refundStatus !== 'none') throw new ApiError(400, 'Return already requested for this order');
-        order.refundStatus = 'requested';
-        if (refundReason) order.refundReason = refundReason;
-        await order.save();
-        return order;
+
+        if (order.status !== 'DELIVERED') {
+            throw new ApiError(400, 'Only delivered orders can be returned');
+        }
+
+        if (order.refundStatus !== 'NONE') {
+            throw new ApiError(400, 'Return already requested for this order');
+        }
+
+        return prisma.order.update({
+            where: { id: orderId },
+            data: {
+                refundStatus: 'REQUESTED',
+                refundReason: refundReason || null
+            }
+        });
     }
 }
 

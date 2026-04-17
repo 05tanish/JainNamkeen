@@ -1,31 +1,42 @@
-import Category from './category.model.js';
+import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-class CategoryService {
-    static async getCategories() {
-        return Category.find().sort({ name: 1 });
-    }
+export const getCategories = async () => {
+    return prisma.category.findMany({
+        orderBy: { name: 'asc' }
+    });
+};
 
-    static async getCategory(id) {
-        const category = await Category.findById(id);
-        if (!category) throw new ApiError(404, 'Category not found');
-        return category;
-    }
+export const getCategory = async (id) => {
+    const category = await prisma.category.findUnique({
+        where: { id }
+    });
 
-    static async createCategory(data) {
-        return Category.create(data);
-    }
+    if (!category) throw new ApiError(404, 'Category not found');
+    return category;
+};
 
-    static async updateCategory(id, data) {
-        const category = await Category.findByIdAndUpdate(id, data, { new: true, runValidators: true });
-        if (!category) throw new ApiError(404, 'Category not found');
-        return category;
-    }
+export const createCategory = async (data) => {
+    return prisma.category.create({
+        data
+    });
+};
 
-    static async deleteCategory(id) {
-        const category = await Category.findByIdAndDelete(id);
-        if (!category) throw new ApiError(404, 'Category not found');
-    }
-}
+export const updateCategory = async (id, data) => {
+    const category = await prisma.category.update({
+        where: { id },
+        data
+    }).catch(() => {
+        throw new ApiError(404, 'Category not found');
+    });
 
-export default CategoryService;
+    return category;
+};
+
+export const deleteCategory = async (id) => {
+    await prisma.category.delete({
+        where: { id }
+    }).catch(() => {
+        throw new ApiError(404, 'Category not found');
+    });
+};
