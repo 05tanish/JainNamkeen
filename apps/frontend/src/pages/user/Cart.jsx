@@ -60,7 +60,7 @@ export default function Cart() {
                 {/* Cart Items */}
                 <div>
                     {items.map(item => (
-                        <div key={item.product?._id || item._id} className="card cart-item">
+                        <div key={item.product?.id || item.id} className="card cart-item">
                             <div className="cart-item-image">
                                 {(item.product?.images && item.product.images.length > 0) || item.product?.image ? (
                                     <img src={item.product?.images && item.product.images.length > 0 ? item.product.images[0].url : (item.product?.image?.startsWith('http') ? item.product.image : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${item.product?.image}`)} alt={item.product?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -76,7 +76,7 @@ export default function Cart() {
                             <div className="cart-item-quantity">
                                 <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => handleUpdateQuantity(item.product?._id, item.quantity - 1)}
+                                    onClick={() => handleUpdateQuantity(item.product?.id, item.quantity - 1)}
                                     style={{ borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}
                                 >−</button>
                                 <span style={{
@@ -85,7 +85,7 @@ export default function Cart() {
                                 }}>{item.quantity}</span>
                                 <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => handleUpdateQuantity(item.product?._id, item.quantity + 1)}
+                                    onClick={() => handleUpdateQuantity(item.product?.id, item.quantity + 1)}
                                     style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}
                                 >+</button>
                             </div>
@@ -93,7 +93,7 @@ export default function Cart() {
                             <div className="cart-item-total">
                                 <p style={{ fontWeight: 700, marginBottom: 4 }}>₹{(item.product?.price || 0) * item.quantity}</p>
                                 <button
-                                    onClick={() => handleRemoveFromCart(item.product?._id)}
+                                    onClick={() => handleRemoveFromCart(item.product?.id)}
                                     style={{ background: 'none', color: 'var(--danger)', fontSize: '1rem' }}
                                 ><FiTrash2 /></button>
                             </div>

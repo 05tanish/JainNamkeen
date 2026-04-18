@@ -8,15 +8,18 @@ export const productSchema = z.object({
     stock: z.coerce.number().int().min(0, 'Stock cannot be negative').default(0),
     category: z
         .string()
-        .length(24, 'Category must be a valid 24-character MongoDB ObjectId'),
+        .min(1, 'Category is required'),
     images: z
-        .array(z.object({ url: z.string().url(), public_id: z.string() }))
+        .array(z.object({ 
+            url: z.string().min(1, 'Image URL is required'), 
+            public_id: z.string().optional() 
+        }))
         .optional()
         .default([]),
     brand: z.string().trim().optional().default('Sangam Namkeen'),
     weight: z.string().trim().optional().default('250g'),
     tags: z.union([
-        z.array(z.string().trim().toLowerCase()),
+        z.array(z.string().trim().transform(t => t.toLowerCase())),
         // Accept comma-separated string from FormData
         z.string().transform(s =>
             s.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)

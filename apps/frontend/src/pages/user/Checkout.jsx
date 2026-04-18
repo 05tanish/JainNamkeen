@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import API from '../../api/axios';
 import { useCart } from '../../hooks/useCart';
 import { useAlert } from '../../components/AlertManager';
+import { initiatePayment } from '../../utils/razorpay';
+import { logger } from '../../utils/logger';
 import './Checkout.css';
 
 // Lazy load Calendar component
@@ -61,9 +63,9 @@ export default function Checkout() {
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         
-        if (appliedCoupon.discountType === 'fixed') {
+        if (appliedCoupon.discountType === 'FLAT') {
             return appliedCoupon.discountValue;
-        } else if (appliedCoupon.discountType === 'percentage') {
+        } else if (appliedCoupon.discountType === 'PERCENTAGE') {
             let calculatedDiscount = (cartTotal * appliedCoupon.discountValue) / 100;
             if (appliedCoupon.maxDiscount) {
                 calculatedDiscount = Math.min(calculatedDiscount, appliedCoupon.maxDiscount);
@@ -110,12 +112,12 @@ export default function Checkout() {
 
         try {
             const orderData = {
+                // Only send product IDs and quantities - backend will calculate prices
                 items: items.map(item => ({
-                    product: item.product?._id,
-                    name: item.product?.name,
-                    price: item.product?.price,
+                    product: item.product?.id,
                     quantity: item.quantity
                 })),
+                // Send total for verification only - backend recalculates
                 totalAmount: total,
                 shippingAddress: {
                     name: form.name,
@@ -130,15 +132,48 @@ export default function Checkout() {
                 deliveryDate: deliveryDate.toISOString()
             };
 
-            await API.post('/orders', orderData);
-            await clearCart();
-            showAlert('Order placed successfully! Redirecting...', 'success');
-            setTimeout(() => {
-                navigate('/my-orders', { state: { orderPlaced: true } });
-            }, 1000);
+            const response = await API.post('/orders', orderData);
+            const order = response.data;
+
+            // Handle payment based on method
+            if (form.paymentMethod === 'online') {
+                // Initiate Razorpay payment — clear cart only after successful payment
+                initiatePayment(
+                    order.id,
+                    // Success callback
+                    async (paymentData) => {
+                        await clearCart();
+                        showAlert('Payment successful! Order confirmed.', 'success');
+                        setTimeout(() => {
+                            navigate('/my-orders', { state: { orderPlaced: true, orderId: order.id } });
+                        }, 1000);
+                    },
+                    // Failure callback
+                    (error) => {
+                        logger.error('Payment failed', error);
+                        showAlert(
+                            error.message || 'Payment failed. You can retry from My Orders page.',
+                            'error',
+                            0
+                        );
+                        setTimeout(() => {
+                            navigate('/my-orders', { state: { orderId: order.id, paymentFailed: true } });
+                        }, 2000);
+                    }
+                );
+                // Razorpay modal is now open — unblock the button
+                setLoading(false);
+            } else {
+                // COD - clear cart and redirect
+                await clearCart();
+                showAlert('Order placed successfully!', 'success');
+                setTimeout(() => {
+                    navigate('/my-orders', { state: { orderPlaced: true, orderId: order.id } });
+                }, 1000);
+            }
         } catch (err) {
             const errorMsg = err.response?.data?.message || 'Failed to place order. Please try again.';
-            showAlert(errorMsg, 'error', 0); // 0 duration = no auto-dismiss for critical errors
+            showAlert(errorMsg, 'error', 0);
             setLoading(false);
         }
     };
@@ -205,16 +240,21 @@ export default function Checkout() {
 
                     <div className="card" style={{ padding: 24, marginBottom: 24 }}>
                         <h3 style={{ marginBottom: 16 }}>Payment Method</h3>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', marginBottom: 8, background: form.paymentMethod === 'cod' ? 'var(--primary-glow)' : 'transparent' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', marginBottom: 8, background: form.paymentMethod === 'online' ? 'var(--primary-glow)' : 'transparent', border: form.paymentMethod === 'online' ? '2px solid var(--primary)' : '1px solid var(--outline-variant)' }}>
+                            <input type="radio" name="payment" value="online" checked={form.paymentMethod === 'online'}
+                                onChange={() => setForm({ ...form, paymentMethod: 'online' })} />
+                            <span>💳 Pay Online (Razorpay) - Recommended</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', background: form.paymentMethod === 'cod' ? 'var(--primary-glow)' : 'transparent', border: form.paymentMethod === 'cod' ? '2px solid var(--primary)' : '1px solid var(--outline-variant)' }}>
                             <input type="radio" name="payment" value="cod" checked={form.paymentMethod === 'cod'}
                                 onChange={() => setForm({ ...form, paymentMethod: 'cod' })} />
                             <span>💵 Cash on Delivery (COD)</span>
                         </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', background: form.paymentMethod === 'online' ? 'var(--primary-glow)' : 'transparent' }}>
-                            <input type="radio" name="payment" value="online" checked={form.paymentMethod === 'online'}
-                                onChange={() => setForm({ ...form, paymentMethod: 'online' })} />
-                            <span>💳 Online Payment (Coming Soon)</span>
-                        </label>
+                        {form.paymentMethod === 'online' && (
+                            <div style={{ marginTop: 12, padding: 12, background: 'var(--success-container)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', color: 'var(--on-success-container)' }}>
+                                ✓ Secure payment via Razorpay • UPI, Cards, Net Banking supported
+                            </div>
+                        )}
                     </div>
 
                     <div className="card" style={{ padding: 24, marginBottom: 24 }}>
@@ -253,7 +293,7 @@ export default function Checkout() {
                 <div className="card order-summary-card" style={{ padding: 24 }}>
                     <h3 style={{ marginBottom: 20 }}>Order Summary</h3>
                     {items.map(item => (
-                        <div key={item.product?._id || item._id} style={{
+                        <div key={item.product?.id || item.id} style={{
                             display: 'flex', justifyContent: 'space-between', marginBottom: 10,
                             fontSize: '0.88rem', paddingBottom: 8
                         }}>
@@ -307,7 +347,7 @@ export default function Checkout() {
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>Available Coupons:</div>
                                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                     {activeCoupons.map(c => (
-                                        <span key={c._id} 
+                                        <span key={c.id} 
                                             onClick={() => setCouponCode(c.code)}
                                             style={{ fontSize: '0.75rem', padding: '4px 8px', background: 'var(--surface-container-highest)', border: '1px dashed var(--primary-light)', borderRadius: 4, cursor: 'pointer', color: 'var(--primary)' }}>
                                             {c.code}

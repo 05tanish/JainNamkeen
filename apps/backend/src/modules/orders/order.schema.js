@@ -4,9 +4,10 @@ export const createOrderSchema = z.object({
     items: z
         .array(
             z.object({
+                // Prisma uses CUIDs (25 chars), not MongoDB ObjectIds (24 chars)
                 product: z
                     .string()
-                    .length(24, 'Each item must have a valid 24-char product ID'),
+                    .min(1, 'Product ID is required'),
                 name: z.string().optional(),
                 price: z.coerce.number().min(0).optional(),
                 quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1'),
@@ -28,28 +29,21 @@ export const createOrderSchema = z.object({
             .regex(/^\d{10}$/, 'Phone must be exactly 10 digits'),
     }),
     paymentMethod: z.enum(['cod', 'online']).default('cod'),
-    couponCode: z.string().trim().toUpperCase().optional(),
+    couponCode: z.string().trim().transform(v => v.toUpperCase()).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
-    status: z.enum([
-        'pending',
-        'confirmed',
-        'processing',
-        'shipped',
-        'delivered',
-        'cancelled',
-    ]),
+    // Accept both cases and normalize to uppercase for the service
+    status: z.string().transform(v => v.toUpperCase()).pipe(
+        z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'])
+    ),
 });
 
 export const refundSchema = z.object({
-    refundStatus: z.enum([
-        'none',
-        'requested',
-        'approved',
-        'rejected',
-        'completed',
-    ]),
+    // Accept both cases and normalize to uppercase for the service
+    refundStatus: z.string().transform(v => v.toUpperCase()).pipe(
+        z.enum(['NONE', 'REQUESTED', 'APPROVED', 'REJECTED', 'COMPLETED'])
+    ),
     refundReason: z.string().trim().optional(),
     refundAmount: z.coerce.number().min(0).optional(),
 });

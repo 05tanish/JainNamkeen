@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import * as PageService from './page.service.js';
+import PageService from './page.service.js';
 
 export const getPages = asyncHandler(async (req, res) => {
     const pages = await PageService.getPages();

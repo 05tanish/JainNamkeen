@@ -1,9 +1,9 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import * as NotificationService from './notification.service.js';
+import NotificationService from './notification.service.js';
 
 export const createNotification = asyncHandler(async (req, res) => {
-    const notification = await NotificationService.createNotification(req.body, req.user._id);
+    const notification = await NotificationService.createNotification(req.body, req.user.id);
     successResponse(res, { statusCode: 201, data: notification, message: 'Notification created' });
 });
 
@@ -23,8 +23,14 @@ export const deleteNotification = asyncHandler(async (req, res) => {
 });
 
 export const getUserNotifications = asyncHandler(async (req, res) => {
-    const notifications = await NotificationService.getUserNotifications(req.user);
-    successResponse(res, { statusCode: 200, data: notifications, message: 'User notifications fetched' });
+    try {
+        const notifications = await NotificationService.getUserNotifications(req.user);
+        successResponse(res, { statusCode: 200, data: notifications, message: 'User notifications fetched' });
+    } catch (error) {
+        // If notifications fail, return empty array instead of error
+        console.error('Notification fetch error:', error);
+        successResponse(res, { statusCode: 200, data: [], message: 'Notifications unavailable' });
+    }
 });
 
 export const markAllAsRead = asyncHandler(async (req, res) => {

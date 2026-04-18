@@ -35,11 +35,11 @@ function StaffDashboard() {
                     <thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
                     <tbody>
                         {(stats.recentOrders || []).map(order => (
-                            <tr key={order._id}>
-                                <td>#{order._id.slice(-6).toUpperCase()}</td>
+                            <tr key={order.id}>
+                                <td>#{order.id.slice(-6).toUpperCase()}</td>
                                 <td>{order.user?.name}</td>
                                 <td>₹{order.totalAmount}</td>
-                                <td><span className={`badge badge-${order.status}`}>{order.status}</span></td>
+                                <td><span className={`badge badge-${order.status?.toLowerCase()}`}>{order.status?.toLowerCase()}</span></td>
                             </tr>
                         ))}
                     </tbody>
@@ -56,7 +56,7 @@ function StaffOrders() {
 
     const loadOrders = useCallback(() => {
         const params = filter ? `?status=${filter}` : '';
-        API.get(`/orders${params}`).then(res => setOrders(res.data.orders));
+        API.get(`/orders${params}`).then(res => setOrders(res.data.orders || []));
     }, [filter]);
 
     useEffect(() => { loadOrders(); }, [loadOrders]);
@@ -66,7 +66,7 @@ function StaffOrders() {
         loadOrders();
     };
 
-    const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
     return (
         <div className="animate-fadeIn">
@@ -74,7 +74,7 @@ function StaffOrders() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
                 <button className={`btn btn-sm ${!filter ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter('')}>All</button>
                 {statuses.map(s => (
-                    <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>{s}</button>
+                    <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>{s.toLowerCase()}</button>
                 ))}
             </div>
             <div className="table-container">
@@ -82,8 +82,8 @@ function StaffOrders() {
                     <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Update</th></tr></thead>
                     <tbody>
                         {orders.map(order => (
-                            <tr key={order._id}>
-                                <td>#{order._id.slice(-6).toUpperCase()}</td>
+                            <tr key={order.id}>
+                                <td>#{order.id.slice(-6).toUpperCase()}</td>
                                 <td>{order.user?.name}<br /><small style={{ color: 'var(--text-muted)' }}>{order.user?.phone}</small></td>
                                 <td>
                                     {order.items.map((item, i) => (
@@ -91,12 +91,12 @@ function StaffOrders() {
                                     ))}
                                 </td>
                                 <td>₹{order.totalAmount}</td>
-                                <td><span className={`badge badge-${order.status}`}>{order.status}</span></td>
+                                <td><span className={`badge badge-${order.status?.toLowerCase()}`}>{order.status?.toLowerCase()}</span></td>
                                 <td>{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
                                 <td>
-                                    <select className="form-control" value={order.status} onChange={e => updateStatus(order._id, e.target.value)}
+                                    <select className="form-control" value={order.status} onChange={e => updateStatus(order.id, e.target.value)}
                                         style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: 120 }}>
-                                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                        {statuses.map(s => <option key={s} value={s}>{s.toLowerCase()}</option>)}
                                     </select>
                                 </td>
                             </tr>
@@ -124,7 +124,7 @@ function StaffProducts() {
                     <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead>
                     <tbody>
                         {products.map(p => (
-                            <tr key={p._id}>
+                            <tr key={p.id}>
                                 <td><strong>{p.name}</strong><br /><small style={{ color: 'var(--text-muted)' }}>{p.weight}</small></td>
                                 <td>{p.category?.name}</td>
                                 <td>₹{p.price}</td>

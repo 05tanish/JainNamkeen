@@ -38,11 +38,7 @@ export const getActiveCoupons = async () => {
     return prisma.coupon.findMany({
         where: {
             isActive: true,
-            validUntil: { gte: today },
-            OR: [
-                { usageLimit: null },
-                { usedCount: { lt: prisma.coupon.fields.usageLimit } }
-            ]
+            validUntil: { gte: today }
         },
         orderBy: { createdAt: 'desc' }
     });
@@ -63,8 +59,9 @@ export const updateCoupon = async (id, data) => {
     const coupon = await prisma.coupon.update({
         where: { id },
         data: updateData
-    }).catch(() => {
-        throw new ApiError(404, 'Coupon not found');
+    }).catch((err) => {
+        if (err.code === 'P2025') throw new ApiError(404, 'Coupon not found');
+        throw err;
     });
 
     return coupon;
@@ -73,8 +70,9 @@ export const updateCoupon = async (id, data) => {
 export const deleteCoupon = async (id) => {
     await prisma.coupon.delete({
         where: { id }
-    }).catch(() => {
-        throw new ApiError(404, 'Coupon not found');
+    }).catch((err) => {
+        if (err.code === 'P2025') throw new ApiError(404, 'Coupon not found');
+        throw err;
     });
 };
 

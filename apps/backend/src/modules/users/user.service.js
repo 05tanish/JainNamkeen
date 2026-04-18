@@ -1,13 +1,14 @@
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
+import { invalidateUserCache } from '../../middleware/auth.js';
 
 const VALID_ROLES = ['USER', 'STAFF', 'ADMIN'];
 
 export const getUsers = async ({ role, search, page = 1, limit = 20 }) => {
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    if (pageNum < 1) throw new ApiError(400, 'Page must be at least 1');
-    if (limitNum < 1 || limitNum > 100) throw new ApiError(400, 'Limit must be between 1 and 100');
+    if (isNaN(pageNum) || pageNum < 1) throw new ApiError(400, 'Page must be a valid number >= 1');
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) throw new ApiError(400, 'Limit must be between 1 and 100');
     if (role && !VALID_ROLES.includes(role.toUpperCase())) {
         throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
     }
@@ -52,9 +53,13 @@ export const updateUserRole = async (id, role) => {
     const user = await prisma.user.update({
         where: { id },
         data: { role: roleUpper }
-    }).catch(() => {
-        throw new ApiError(404, 'User not found');
+    }).catch((err) => {
+        if (err.code === 'P2025') throw new ApiError(404, 'User not found');
+        throw err;
     });
+
+    // Invalidate user cache after role change
+    await invalidateUserCache(id);
 
     return user;
 };
@@ -66,10 +71,15 @@ export const toggleUserStatus = async (id) => {
 
     if (!user) throw new ApiError(404, 'User not found');
 
-    return prisma.user.update({
+    const updated = await prisma.user.update({
         where: { id },
         data: { isActive: !user.isActive }
     });
+
+    // Invalidate user cache after status change
+    await invalidateUserCache(id);
+
+    return updated;
 };
 
 export const getUserStats = async () => {
@@ -91,7 +101,7 @@ export const suspendUser = async (id, reason) => {
     if (!user) throw new ApiError(404, 'User not found');
     if (user.isSuspended) throw new ApiError(400, 'User is already suspended');
 
-    return prisma.user.update({
+    const updated = await prisma.user.update({
         where: { id },
         data: {
             isSuspended: true,
@@ -99,6 +109,11 @@ export const suspendUser = async (id, reason) => {
             suspendedAt: new Date()
         }
     });
+
+    // Invalidate user cache after suspension
+    await invalidateUserCache(id);
+
+    return updated;
 };
 
 export const unsuspendUser = async (id) => {
@@ -108,7 +123,7 @@ export const unsuspendUser = async (id) => {
 
     if (!user) throw new ApiError(404, 'User not found');
 
-    return prisma.user.update({
+    const updated = await prisma.user.update({
         where: { id },
         data: {
             isSuspended: false,
@@ -116,4 +131,9 @@ export const unsuspendUser = async (id) => {
             suspendedAt: null
         }
     });
+
+    // Invalidate user cache after unsuspension
+    await invalidateUserCache(id);
+
+    return updated;
 };

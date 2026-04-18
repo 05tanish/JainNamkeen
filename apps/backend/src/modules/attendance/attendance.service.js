@@ -1,5 +1,5 @@
 import Attendance from './attendance.model.js';
-import User from '../users/user.model.js';
+import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
 class AttendanceService {
@@ -7,14 +7,18 @@ class AttendanceService {
      * Mark (upsert) attendance for a user on a given date.
      */
     static async markAttendance({ userId, date, status, note }, markedBy) {
-        if (!userId?.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
+        // Validate userId format (Prisma uses cuid, not MongoDB ObjectId)
+        if (!userId || typeof userId !== 'string') throw new ApiError(400, 'Invalid user ID');
 
         // Normalize to midnight UTC to prevent timezone drift
         const attendanceDate = new Date(date);
         if (isNaN(attendanceDate.getTime())) throw new ApiError(400, 'Invalid date format');
         attendanceDate.setUTCHours(0, 0, 0, 0);
 
-        const user = await User.findById(userId);
+        // Check if user exists using Prisma
+        const user = await prisma.user.findUnique({
+            where: { id: userId }
+        });
         if (!user) throw new ApiError(404, 'User not found');
 
         const record = await Attendance.findOneAndUpdate(
@@ -33,7 +37,8 @@ class AttendanceService {
         const query = {};
 
         if (userId) {
-            if (!userId.match(/^[0-9a-fA-F]{24}$/)) throw new ApiError(400, 'Invalid user ID');
+            // Validate userId format for Prisma (cuid instead of MongoDB ObjectId)
+            if (!userId || typeof userId !== 'string') throw new ApiError(400, 'Invalid user ID');
             query.user = userId;
         }
 
@@ -52,10 +57,29 @@ class AttendanceService {
             };
         }
 
-        return Attendance.find(query)
-            .populate('user', 'name role')
-            .populate('markedBy', 'name')
-            .sort({ date: -1 });
+        // Use lean() — no populate() since User model is in PostgreSQL (Prisma)
+        const records = await Attendance.find(query).lean().sort({ date: -1 });
+
+        // Collect all referenced Prisma user IDs and fetch in a single query
+        const allIds = [...new Set([
+            ...records.map(r => r.user).filter(Boolean),
+            ...records.map(r => r.markedBy).filter(Boolean)
+        ])];
+
+        const users = allIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: allIds } },
+                select: { id: true, name: true, role: true }
+            })
+            : [];
+
+        const userMap = Object.fromEntries(users.map(u => [u.id, u]));
+
+        return records.map(r => ({
+            ...r,
+            user: userMap[r.user] ?? r.user,
+            markedBy: userMap[r.markedBy] ?? r.markedBy,
+        }));
     }
 
     /**
@@ -74,7 +98,21 @@ class AttendanceService {
             };
         }
 
-        return Attendance.find(query).populate('markedBy', 'name').sort({ date: -1 });
+        const records = await Attendance.find(query).lean().sort({ date: -1 });
+
+        const markedByIds = [...new Set(records.map(r => r.markedBy).filter(Boolean))];
+        const staff = markedByIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: markedByIds } },
+                select: { id: true, name: true }
+            })
+            : [];
+        const staffMap = Object.fromEntries(staff.map(u => [u.id, u]));
+
+        return records.map(r => ({
+            ...r,
+            markedBy: staffMap[r.markedBy] ?? r.markedBy,
+        }));
     }
 
     /**
@@ -90,49 +128,40 @@ class AttendanceService {
         const start = new Date(y, m - 1, 1);
         const end = new Date(y, m, 0, 23, 59, 59);
 
-        return User.aggregate([
-            { $match: { role: 'staff', isActive: { $ne: false } } },
-            {
-                $lookup: {
-                    from: 'attendances',
-                    let: { userId: '$_id' },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $and: [
-                                        { $eq: ['$user', '$$userId'] },
-                                        { $gte: ['$date', start] },
-                                        { $lte: ['$date', end] },
-                                    ],
-                                },
-                            },
-                        },
-                    ],
-                    as: 'records',
-                },
+        // Get all active staff users from Prisma
+        const staffUsers = await prisma.user.findMany({
+            where: {
+                role: 'STAFF',
+                isActive: true
             },
-            {
-                $project: {
-                    userId: '$_id',
-                    name: 1,
-                    email: 1,
-                    present: {
-                        $size: { $filter: { input: '$records', as: 'r', cond: { $eq: ['$$r.status', 'present'] } } },
-                    },
-                    late: {
-                        $size: { $filter: { input: '$records', as: 'r', cond: { $eq: ['$$r.status', 'late'] } } },
-                    },
-                    absent: {
-                        $size: { $filter: { input: '$records', as: 'r', cond: { $eq: ['$$r.status', 'absent'] } } },
-                    },
-                    halfDay: {
-                        $size: { $filter: { input: '$records', as: 'r', cond: { $eq: ['$$r.status', 'half-day'] } } },
-                    },
-                },
-            },
-            { $sort: { name: 1 } },
-        ]);
+            select: {
+                id: true,
+                name: true,
+                email: true
+            }
+        });
+
+        // Get attendance records for the date range
+        const attendanceRecords = await Attendance.find({
+            date: { $gte: start, $lte: end }
+        }).lean();
+
+        // Build stats for each staff member
+        const stats = staffUsers.map(user => {
+            const userRecords = attendanceRecords.filter(r => r.user.toString() === user.id);
+            
+            return {
+                userId: user.id,
+                name: user.name,
+                email: user.email,
+                present: userRecords.filter(r => r.status === 'present').length,
+                late: userRecords.filter(r => r.status === 'late').length,
+                absent: userRecords.filter(r => r.status === 'absent').length,
+                halfDay: userRecords.filter(r => r.status === 'half-day').length
+            };
+        });
+
+        return stats.sort((a, b) => a.name.localeCompare(b.name));
     }
 }
 

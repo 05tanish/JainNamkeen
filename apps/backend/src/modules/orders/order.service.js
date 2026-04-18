@@ -1,7 +1,11 @@
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
+import { getFirstImage } from '../../utils/safeJsonParse.js';
 
 const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+
+// Safe money rounding to 2 decimal places — avoids JS floating-point drift
+const roundMoney = (amount) => Math.round(amount * 100) / 100;
 
 class OrderService {
     static async createOrder(userId, { items, totalAmount, shippingAddress, paymentMethod, couponCode }) {
@@ -12,120 +16,144 @@ class OrderService {
             throw new ApiError(400, 'Complete shipping address is required (name, phone, street, city, state, pincode)');
         }
 
-        let calculatedSubtotal = 0;
-        const orderItems = [];
+        // Use transaction with row locking to prevent race conditions
+        return await prisma.$transaction(async (tx) => {
+            // Work in paise (integer) to avoid floating-point precision issues
+            let subtotalPaise = 0;
+            const orderItems = [];
 
-        for (const item of items) {
-            const product = await prisma.product.findUnique({
-                where: { id: item.product }
-            });
+            // Lock products for update to prevent concurrent stock modifications
+            for (const item of items) {
+                // FIX: table name is 'products' (@@map), IDs are CUIDs (not UUIDs)
+                const rows = await tx.$queryRaw`
+                    SELECT id, name, price, stock, "isActive" FROM products WHERE id = ${item.product} FOR UPDATE
+                `;
+                const product = rows[0];
 
-            if (!product) throw new ApiError(404, `Product ${item.product} not found`);
-            if (!product.isActive) throw new ApiError(400, `Product "${product.name}" is not available`);
-            if (item.quantity > product.stock) {
-                throw new ApiError(400, `Insufficient stock for "${product.name}". Available: ${product.stock}`);
+                if (!product) throw new ApiError(404, `Product ${item.product} not found`);
+                if (!product.isActive) throw new ApiError(400, `Product "${product.name}" is not available`);
+                if (item.quantity > product.stock) {
+                    throw new ApiError(400, `Insufficient stock for "${product.name}". Available: ${product.stock}`);
+                }
+
+                // Accumulate in paise to avoid float drift
+                subtotalPaise += Math.round(Number(product.price) * 100) * item.quantity;
+                orderItems.push({
+                    productId: product.id,
+                    name: product.name,
+                    price: product.price,
+                    quantity: item.quantity,
+                    image: getFirstImage(product.images)
+                });
             }
 
-            calculatedSubtotal += Number(product.price) * item.quantity;
-            orderItems.push({
-                productId: product.id,
-                name: product.name,
-                price: product.price,
-                quantity: item.quantity,
-                image: Array.isArray(product.images) && product.images.length > 0 
-                    ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url)
-                    : null
-            });
-        }
+            // Convert back to rupees with safe rounding
+            const calculatedSubtotal = roundMoney(subtotalPaise / 100);
+            const deliveryCharge = calculatedSubtotal >= 500 ? 0 : 40;
 
-        const deliveryCharge = calculatedSubtotal >= 500 ? 0 : 40;
+            let discount = 0;
+            let couponId = null;
+            if (couponCode) {
+                // FIX: table name is 'coupons' (@@map), IDs are CUIDs (not UUIDs)
+                const couponRows = await tx.$queryRaw`
+                    SELECT * FROM coupons WHERE code = ${couponCode.toUpperCase()} FOR UPDATE
+                `;
+                const coupon = couponRows[0];
 
-        let discount = 0;
-        if (couponCode) {
-            const coupon = await prisma.coupon.findUnique({
-                where: {
-                    code: couponCode.toUpperCase()
-                }
-            });
+                if (coupon && coupon.isActive && new Date(coupon.validUntil) >= new Date()) {
+                    // Check usage limit atomically
+                    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+                        throw new ApiError(400, 'Coupon usage limit reached');
+                    }
 
-            if (coupon && coupon.isActive && new Date(coupon.validUntil) >= new Date()) {
-                if (calculatedSubtotal >= Number(coupon.minOrderAmount || 0)) {
-                    discount = coupon.discountType === 'FLAT'
-                        ? Number(coupon.discountValue)
-                        : Math.min(
-                            (calculatedSubtotal * Number(coupon.discountValue)) / 100,
-                            coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity
-                        );
+                    if (calculatedSubtotal >= Number(coupon.minOrderAmount || 0)) {
+                        if (coupon.discountType === 'FLAT') {
+                            discount = roundMoney(Number(coupon.discountValue));
+                        } else {
+                            const raw = (calculatedSubtotal * Number(coupon.discountValue)) / 100;
+                            const cap = coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity;
+                            discount = roundMoney(Math.min(raw, cap));
+                        }
 
-                    await prisma.coupon.update({
-                        where: { id: coupon.id },
-                        data: { usedCount: { increment: 1 } }
-                    });
+                        couponId = coupon.id;
+                        // Update coupon usage count atomically
+                        await tx.coupon.update({
+                            where: { id: coupon.id },
+                            data: { usedCount: { increment: 1 } }
+                        });
+                    }
                 }
             }
-        }
 
-        const calculatedTotal = Math.max(0, calculatedSubtotal + deliveryCharge - discount);
+            const calculatedTotal = roundMoney(Math.max(0, calculatedSubtotal + deliveryCharge - discount));
 
-        if (typeof totalAmount === 'number' && Math.abs(totalAmount - calculatedTotal) > 1) {
-            throw new ApiError(400, 'Order total mismatch', [
-                `Expected: ₹${calculatedTotal}`,
-                `Received: ₹${totalAmount}`,
-                `Subtotal: ₹${calculatedSubtotal}, Delivery: ₹${deliveryCharge}, Discount: ₹${discount}`,
-            ]);
-        }
+            // Always recalculate on backend - never trust frontend prices
+            if (typeof totalAmount === 'number' && Math.abs(totalAmount - calculatedTotal) > 1) {
+                throw new ApiError(400, 'Order total mismatch', [
+                    `Expected: ₹${calculatedTotal}`,
+                    `Received: ₹${totalAmount}`,
+                    `Subtotal: ₹${calculatedSubtotal}, Delivery: ₹${deliveryCharge}, Discount: ₹${discount}`,
+                ]);
+            }
 
-        const order = await prisma.order.create({
-            data: {
-                userId,
-                subtotal: calculatedSubtotal,
-                discount,
-                couponCode: couponCode?.toUpperCase() || null,
-                totalAmount: calculatedTotal,
-                shippingName: addr.name,
-                shippingPhone: addr.phone,
-                shippingStreet: addr.street,
-                shippingCity: addr.city,
-                shippingState: addr.state,
-                shippingPincode: addr.pincode,
-                paymentMethod: paymentMethod?.toUpperCase() || 'COD',
-                items: {
-                    create: orderItems
+            // Create order and update stock atomically
+            const order = await tx.order.create({
+                data: {
+                    userId,
+                    subtotal: calculatedSubtotal,
+                    discount,
+                    couponCode: couponCode?.toUpperCase() || null,
+                    totalAmount: calculatedTotal,
+                    shippingName: addr.name,
+                    shippingPhone: addr.phone,
+                    shippingStreet: addr.street,
+                    shippingCity: addr.city,
+                    shippingState: addr.state,
+                    shippingPincode: addr.pincode,
+                    paymentMethod: paymentMethod?.toUpperCase() || 'COD',
+                    items: {
+                        create: orderItems
+                    },
+                    statusHistory: {
+                        create: {
+                            status: 'PENDING',
+                            changedBy: userId
+                        }
+                    }
                 },
-                statusHistory: {
-                    create: {
-                        status: 'PENDING',
-                        changedBy: userId
+                include: {
+                    items: true,
+                    user: {
+                        select: { id: true, name: true, email: true }
                     }
                 }
-            },
-            include: {
-                items: true,
-                user: {
-                    select: { id: true, name: true, email: true }
-                }
-            }
+            });
+
+            // Update product stock atomically in same transaction
+            await Promise.all(
+                items.map(item =>
+                    tx.product.update({
+                        where: { id: item.product },
+                        data: {
+                            stock: { decrement: item.quantity },
+                            totalSold: { increment: item.quantity }
+                        }
+                    })
+                )
+            );
+
+            return order;
+        }, {
+            maxWait: 5000, // Maximum time to wait for transaction to start
+            timeout: 10000, // Maximum time for transaction to complete
+            isolationLevel: 'Serializable' // Highest isolation level
         });
-
-        await Promise.all(
-            items.map(item =>
-                prisma.product.update({
-                    where: { id: item.product },
-                    data: {
-                        stock: { decrement: item.quantity },
-                        totalSold: { increment: item.quantity }
-                    }
-                })
-            )
-        );
-
-        return order;
     }
 
     static async getOrders(user, filters) {
         const where = {};
         
-        if (user.role === 'USER') {
+        if (user.role?.toUpperCase() === 'USER') {
             where.userId = user.id;
         } else {
             if (filters.status) {
@@ -137,7 +165,8 @@ class OrderService {
             }
         }
 
-        return prisma.order.findMany({
+        const toNum = (d) => (d ? Number(d.toString()) : 0);
+        const orders = await prisma.order.findMany({
             where,
             include: {
                 user: { select: { name: true, email: true } },
@@ -145,6 +174,13 @@ class OrderService {
             },
             orderBy: { createdAt: 'desc' }
         });
+        return orders.map(o => ({
+            ...o,
+            subtotal:     toNum(o.subtotal),
+            totalAmount:  toNum(o.totalAmount),
+            discount:     toNum(o.discount),
+            refundAmount: toNum(o.refundAmount),
+        }));
     }
 
     static async getOrder(orderId, user) {
@@ -158,7 +194,7 @@ class OrderService {
 
         if (!order) throw new ApiError(404, 'Order not found');
         
-        if (user.role === 'USER' && order.userId !== user.id) {
+        if (user.role?.toUpperCase() === 'USER' && order.userId !== user.id) {
             throw new ApiError(403, 'Not authorized to view this order');
         }
 
@@ -203,7 +239,8 @@ class OrderService {
             revenueAgg,
             refundRequests,
             cancelledOrders,
-            recentOrders
+            recentOrdersRaw,
+            locationGroups
         ] = await Promise.all([
             prisma.order.count(),
             prisma.order.count({ where: { status: 'PENDING' } }),
@@ -217,10 +254,41 @@ class OrderService {
                 include: { user: { select: { name: true, email: true } } },
                 orderBy: { createdAt: 'desc' },
                 take: 5
+            }),
+            // Sales by location — group by city + state
+            prisma.order.groupBy({
+                by: ['shippingCity', 'shippingState'],
+                _count: { id: true },
+                _sum: { totalAmount: true },
+                orderBy: { _count: { id: 'desc' } },
+                take: 10
             })
         ]);
 
-        const totalRevenue = Number(revenueAgg._sum.totalAmount || 0);
+        // Handle Decimal type - convert to number safely
+        const totalRevenue = revenueAgg._sum.totalAmount
+            ? Number(revenueAgg._sum.totalAmount.toString())
+            : 0;
+
+        // Convert Decimal fields in recentOrders to numbers for JSON serialization
+        const toNum = (d) => (d ? Number(d.toString()) : 0);
+        const recentOrders = recentOrdersRaw.map(order => ({
+            ...order,
+            subtotal: toNum(order.subtotal),
+            totalAmount: toNum(order.totalAmount),
+            discount: toNum(order.discount),
+            refundAmount: toNum(order.refundAmount),
+        }));
+
+        // Format location stats
+        const locationStats = locationGroups
+            .filter(g => g.shippingCity) // skip orders with no city
+            .map(g => ({
+                city: g.shippingCity,
+                state: g.shippingState || '',
+                count: g._count.id,
+                revenue: toNum(g._sum.totalAmount)
+            }));
 
         return {
             totalOrders,
@@ -230,7 +298,8 @@ class OrderService {
             totalProfit: totalRevenue * 0.2,
             refundRequests,
             cancelledOrders,
-            recentOrders
+            recentOrders,
+            locationStats
         };
     }
 
@@ -296,7 +365,7 @@ class OrderService {
 
         if (!order) throw new ApiError(404, 'Order not found');
         
-        if (user.role === 'USER' && order.userId !== user.id) {
+        if (user.role?.toUpperCase() === 'USER' && order.userId !== user.id) {
             throw new ApiError(403, 'Not authorized');
         }
 

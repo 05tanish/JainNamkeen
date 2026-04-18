@@ -17,7 +17,7 @@ export default function Home() {
         <div className="home">
             {/* Hero Section */}
             <section className="hero" style={{
-                background: 'linear-gradient(rgba(44,24,16,0.4), rgba(44,24,16,0.6)), url(https://lh3.googleusercontent.com/aida-public/AB6AXuBbMvGgfBX9vPh8e9ZBNg2EC1QfNpv90yzJezcQgS6bhkoW8Ya7Z6yH2RDP1MHxSVdgkvuT0Jum59HP5_V84SWLqVymS5K4rTy4ZYAkSUh5071lOQB0DDnZ-EeyHQNdTsw0_ZGdQ5r1z6qXMBs2CQ8cnJjaCKFf2Gwq5N74CSTE7es6sFgLSObHTHt1HlHflCBiP3KTCaYuJn9fRkJFlGrnhYKP6wz269_s7INm8adPmaLZSSZuGedQEFNvhQR8erWq0QVlXqFt96s) center/cover',
+                background: 'linear-gradient(rgba(44,24,16,0.4), rgba(44,24,16,0.6)), url(https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1600&q=80) center/cover',
                 backgroundAttachment: 'fixed'
             }}>
                 <div className="container">
@@ -59,12 +59,12 @@ export default function Home() {
                                 'https://images.unsplash.com/photo-1596040033229-a0b3b7d1b8b8?w=400&h=400&fit=crop'  // Indian sweets
                             ];
                             return (
-                                <Link to={`/products?category=${cat._id}`} key={cat._id} className="collection-card">
+                                <Link to={`/products?category=${cat.id}`} key={cat.id} className="collection-card">
                                     <div className="collection-image">
                                         <img 
                                             src={imageUrls[idx] || imageUrls[0]} 
                                             alt={cat.name}
-                                            onError={(e) => { e.target.src = 'https://via.placeholder.com/400'; }}
+                                            onError={(e) => { e.target.onerror = null; e.target.style.display='none'; e.target.parentElement.style.background='linear-gradient(135deg,#a04100 0%,#7a3200 100%)'; e.target.parentElement.innerHTML='<span style="font-size:3rem;display:flex;align-items:center;justify-content:center;height:100%">🍿</span>'; }}
                                         />
                                     </div>
                                     <h3>{cat.name}</h3>
@@ -83,10 +83,10 @@ export default function Home() {
                     <div className="heritage-content">
                         <div className="heritage-images">
                             <div className="heritage-image" style={{ transform: 'translateY(32px)' }}>
-                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNP5QtPWZqGNZDE0CR4yvjrhUlCArz-jJXEj-BNi5GC20-r6Zzx7KS4eMGIXd2IjwNmp1-MFwp7gdZ3qQjE2HHb6_AJd1QhFEafxgOfGLHWtDNPwBW3JZ12Enr8oeabpP-bHCRvL40aONR0HwER02LnF4_00VQ5PZ4WWKx7_JYDBRrcAP8pf3BqFdofEeQbEh36yBSkZVZKgbb9e-zPPSxj_hVtX1Nb9uqq1kOmHldP7J0QqWZes3RpB5eOb2Q-g9VWJuwDsvJpQI" alt="Traditional Udaipur market stall" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
+                                <img src="https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&h=500&fit=crop&q=80" alt="Traditional Udaipur market stall" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
                             </div>
                             <div className="heritage-image">
-                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF__oFAC0_srHFBlgfbDeF_500CV7RQVvX1WMIZWGRkszsFUJdpHanyWaO3740UuEHpF-L1iIh7sWJZmRqCf85Xgol3cBVFUzDuM5HW70q-Qzz9oN0aRChnGL-14_1dRHVp6kcqUg23zS-B_xZlByP7dhWbvzM1XKrYt35iemTqmj1RyHvyiTQcQK9WGAps82GyukNJlzyelOokfWD8lme-4qswC6IDVzkhEKHw6R8kjSeonYwcZ0TMuDezNw5OgDJsFF9GCpRbfg" alt="Rajasthani palace carvings" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
+                                <img src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=600&h=500&fit=crop&q=80" alt="Rajasthani palace carvings" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
                             </div>
                         </div>
                         <div className="heritage-text">

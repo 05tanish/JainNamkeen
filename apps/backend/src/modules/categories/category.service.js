@@ -26,8 +26,9 @@ export const updateCategory = async (id, data) => {
     const category = await prisma.category.update({
         where: { id },
         data
-    }).catch(() => {
-        throw new ApiError(404, 'Category not found');
+    }).catch((err) => {
+        if (err.code === 'P2025') throw new ApiError(404, 'Category not found');
+        throw err;
     });
 
     return category;
@@ -36,7 +37,8 @@ export const updateCategory = async (id, data) => {
 export const deleteCategory = async (id) => {
     await prisma.category.delete({
         where: { id }
-    }).catch(() => {
-        throw new ApiError(404, 'Category not found');
+    }).catch((err) => {
+        if (err.code === 'P2025') throw new ApiError(404, 'Category not found');
+        throw err;
     });
 };

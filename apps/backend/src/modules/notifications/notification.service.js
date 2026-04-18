@@ -1,6 +1,7 @@
 import Notification from './notification.model.js';
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
+import { logger } from '../../utils/logger.js';
 
 class NotificationService {
     static async createNotification({ title, body, type, recipients, subject }, createdBy) {
@@ -10,14 +11,15 @@ class NotificationService {
             type: type || 'broadcast',
             recipients: recipients || 'all',
             subject: subject || '',
-            createdBy,
+            createdBy: createdBy || null, // Store as string, not ObjectId
         });
     }
 
     static async getNotifications({ type } = {}) {
         const query = {};
         if (type) query.type = type;
-        return Notification.find(query).populate('createdBy', 'name email').sort({ createdAt: -1 });
+        // Don't populate createdBy since it's not in MongoDB anymore
+        return Notification.find(query).sort({ createdAt: -1 });
     }
 
     static async broadcastNotification(id) {
@@ -35,47 +37,58 @@ class NotificationService {
     }
 
     static async getUserNotifications(user) {
-        // Get user's read notifications from Prisma
-        const userData = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { readNotifications: true }
-        });
-        const readIds = userData?.readNotifications || [];
-        const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
-        const query = {
-            isSent: true,
-            type: 'broadcast',
-            _id: { $nin: readIds },
-            $or: [
-                { recipients: 'all' },
-                { recipients: isStaff ? 'staff' : 'users' },
-            ],
-        };
-        return Notification.find(query).sort({ sentAt: -1 }).limit(20);
+        try {
+            // Get user's read notifications from Prisma
+            const userData = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { readNotifications: true }
+            });
+            const readIds = userData?.readNotifications || [];
+            const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
+            const query = {
+                isSent: true,
+                type: 'broadcast',
+                _id: { $nin: readIds },
+                $or: [
+                    { recipients: 'all' },
+                    { recipients: isStaff ? 'staff' : 'users' },
+                ],
+            };
+            return Notification.find(query).sort({ sentAt: -1 }).limit(20);
+        } catch (error) {
+            // If there's an error, return empty array instead of crashing
+            logger.error('Error fetching notifications:', error);
+            return [];
+        }
     }
 
     static async markAllAsRead(user) {
-        const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
-        const notifications = await Notification.find({
-            isSent: true,
-            type: 'broadcast',
-            $or: [{ recipients: 'all' }, { recipients: isStaff ? 'staff' : 'users' }],
-        }).select('_id');
-        const ids = notifications.map(n => n._id.toString());
-        
-        // Update user's readNotifications in Prisma
-        const currentUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { readNotifications: true }
-        });
-        
-        const existingReadIds = currentUser?.readNotifications || [];
-        const newReadIds = [...new Set([...existingReadIds, ...ids])];
-        
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { readNotifications: newReadIds }
-        });
+        try {
+            const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
+            const notifications = await Notification.find({
+                isSent: true,
+                type: 'broadcast',
+                $or: [{ recipients: 'all' }, { recipients: isStaff ? 'staff' : 'users' }],
+            }).select('_id');
+            const ids = notifications.map(n => n._id.toString());
+            
+            // Update user's readNotifications in Prisma
+            const currentUser = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { readNotifications: true }
+            });
+            
+            const existingReadIds = currentUser?.readNotifications || [];
+            const newReadIds = [...new Set([...existingReadIds, ...ids])];
+            
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { readNotifications: newReadIds }
+            });
+        } catch (error) {
+            logger.error('Error marking notifications as read:', error);
+            // Don't throw error, just log it
+        }
     }
 }
 

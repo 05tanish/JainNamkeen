@@ -45,8 +45,8 @@ export default function Navbar() {
 
     const getDashboardLink = () => {
         if (!user) return '/login';
-        if (user.role === 'admin') return '/admin';
-        if (user.role === 'staff') return '/staff';
+        if (user.role === 'ADMIN') return '/admin';
+        if (user.role === 'STAFF') return '/staff';
         return '/my-orders';
     };
 
@@ -134,7 +134,7 @@ export default function Navbar() {
                     )}
 
                     {/* Cart */}
-                    {user?.role === 'user' && (
+                    {user?.role === 'USER' && (
                         <Link to="/cart" className="nav-icon-btn" title="Cart">
                             <FiShoppingCart size={18} />
                             {cartCount > 0 && <span className="nav-badge">{cartCount > 9 ? '9+' : cartCount}</span>}
@@ -144,7 +144,7 @@ export default function Navbar() {
                     {/* Dashboard shortcut */}
                     {user && (
                         <Link to={getDashboardLink()} className="nav-icon-btn" title="Dashboard">
-                            {user.role === 'admin' ? <FiGrid size={18} /> : user.role === 'staff' ? <FiPackage size={18} /> : <FiShoppingBag size={18} />}
+                            {user.role === 'ADMIN' ? <FiGrid size={18} /> : user.role === 'STAFF' ? <FiPackage size={18} /> : <FiShoppingBag size={18} />}
                         </Link>
                     )}
 
@@ -185,8 +185,8 @@ export default function Navbar() {
                                         className="profile-dropdown-item"
                                         onClick={() => setShowProfile(false)}
                                     >
-                                        {user.role === 'admin' ? <FiGrid size={16} /> : user.role === 'staff' ? <FiPackage size={16} /> : <FiShoppingBag size={16} />}
-                                        <span>{user.role === 'admin' ? 'Admin Panel' : user.role === 'staff' ? 'Staff Panel' : 'My Orders'}</span>
+                                        {user.role === 'ADMIN' ? <FiGrid size={16} /> : user.role === 'STAFF' ? <FiPackage size={16} /> : <FiShoppingBag size={16} />}
+                                        <span>{user.role === 'ADMIN' ? 'Admin Panel' : user.role === 'STAFF' ? 'Staff Panel' : 'My Orders'}</span>
                                     </Link>
                                     <div className="profile-dropdown-divider"></div>
                                     <button 

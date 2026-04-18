@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import * as ReviewService from './review.service.js';
+import ReviewService from './review.service.js';
 
 export const getProductReviews = asyncHandler(async (req, res) => {
     const result = await ReviewService.getProductReviews(req.params.id);
@@ -8,17 +8,17 @@ export const getProductReviews = asyncHandler(async (req, res) => {
 });
 
 export const createReview = asyncHandler(async (req, res) => {
-    const review = await ReviewService.createReview(req.params.id, req.user._id, req.body, req.files);
+    const review = await ReviewService.createReview(req.params.id, req.user.id, req.body, req.files);
     successResponse(res, { statusCode: 201, data: review, message: 'Review submitted' });
 });
 
 export const updateReview = asyncHandler(async (req, res) => {
-    const review = await ReviewService.updateReview(req.params.id, req.user._id, req.user.role, req.body, req.files);
+    const review = await ReviewService.updateReview(req.params.id, req.user.id, req.user.role, req.body, req.files);
     successResponse(res, { statusCode: 200, data: review, message: 'Review updated' });
 });
 
 export const deleteReview = asyncHandler(async (req, res) => {
-    await ReviewService.deleteReview(req.params.id, req.user._id, req.user.role);
+    await ReviewService.deleteReview(req.params.id, req.user.id, req.user.role);
     successResponse(res, { statusCode: 200, data: null, message: 'Review deleted' });
 });
 

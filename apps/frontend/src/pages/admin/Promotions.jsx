@@ -8,7 +8,7 @@ function CouponsTab() {
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState({
-        code: '', discountType: 'percentage', discountValue: '', minOrderAmount: '',
+        code: '', discountType: 'PERCENTAGE', discountValue: '', minOrderAmount: '',
         maxDiscount: '', validUntil: '', usageLimit: ''
     });
 
@@ -29,7 +29,7 @@ function CouponsTab() {
 
         setShowForm(false);
         setEditing(null);
-        setForm({ code: '', discountType: 'percentage', discountValue: '', minOrderAmount: '', maxDiscount: '', validUntil: '', usageLimit: '' });
+        setForm({ code: '', discountType: 'PERCENTAGE', discountValue: '', minOrderAmount: '', maxDiscount: '', validUntil: '', usageLimit: '' });
         loadCoupons();
     };
 
@@ -39,7 +39,7 @@ function CouponsTab() {
             minOrderAmount: c.minOrderAmount || '', maxDiscount: c.maxDiscount || '',
             validUntil: c.validUntil ? c.validUntil.split('T')[0] : '', usageLimit: c.usageLimit || ''
         });
-        setEditing(c._id);
+        setEditing(c.id);
         setShowForm(true);
     };
 
@@ -71,8 +71,8 @@ function CouponsTab() {
                         <div className="form-group">
                             <label>Discount Type</label>
                             <select className="form-control" value={form.discountType} onChange={e => setForm({ ...form, discountType: e.target.value })}>
-                                <option value="percentage">Percentage (%)</option>
-                                <option value="flat">Flat (₹)</option>
+                                <option value="PERCENTAGE">Percentage (%)</option>
+                                <option value="FLAT">Flat (₹)</option>
                             </select>
                         </div>
                         <div className="form-group">
@@ -105,10 +105,10 @@ function CouponsTab() {
                     <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Valid Until</th><th>Used</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                         {coupons.map(c => (
-                            <tr key={c._id}>
+                            <tr key={c.id}>
                                 <td><strong style={{ color: 'var(--primary)', letterSpacing: 1 }}>{c.code}</strong></td>
-                                <td><span className="badge badge-confirmed">{c.discountType}</span></td>
-                                <td>{c.discountType === 'percentage' ? `${c.discountValue}%` : `₹${c.discountValue}`}</td>
+                                <td><span className="badge badge-confirmed">{c.discountType?.toLowerCase()}</span></td>
+                                <td>{c.discountType === 'PERCENTAGE' ? `${c.discountValue}%` : `₹${c.discountValue}`}</td>
                                 <td>₹{c.minOrderAmount || 0}</td>
                                 <td>{new Date(c.validUntil).toLocaleDateString('en-IN')}</td>
                                 <td>{c.usedCount}{c.usageLimit ? `/${c.usageLimit}` : ''}</td>
@@ -120,10 +120,10 @@ function CouponsTab() {
                                 <td>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(c)}>Edit</button>
-                                        <button className="btn btn-sm" style={{ background: c.isActive ? 'var(--warning)' : 'var(--success)', color: 'white' }} onClick={() => handleToggle(c._id)}>
+                                        <button className="btn btn-sm" style={{ background: c.isActive ? 'var(--warning)' : 'var(--success)', color: 'white' }} onClick={() => handleToggle(c.id)}>
                                             {c.isActive ? <FiToggleRight /> : <FiToggleLeft />}
                                         </button>
-                                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c._id)}><FiTrash2 /></button>
+                                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}><FiTrash2 /></button>
                                     </div>
                                 </td>
                             </tr>
@@ -179,7 +179,7 @@ function FlashSalesTab() {
                         <label>Select Product</label>
                         <select className="form-control" value={selectedProduct} onChange={e => setSelectedProduct(e.target.value)} required>
                             <option value="">Choose product...</option>
-                            {products.map(p => <option key={p._id} value={p._id}>{p.name} (₹{p.price})</option>)}
+                            {products.map(p => <option key={p.id} value={p.id}>{p.name} (₹{p.price})</option>)}
                         </select>
                     </div>
                     <div className="form-group">
@@ -199,13 +199,13 @@ function FlashSalesTab() {
                     <thead><tr><th>Product</th><th>Original Price</th><th>Flash Price</th><th>Discount</th><th>Ends</th><th>Actions</th></tr></thead>
                     <tbody>
                         {flashProducts.map(p => (
-                            <tr key={p._id}>
+                            <tr key={p.id}>
                                 <td><strong>{p.name}</strong></td>
                                 <td style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>₹{p.price}</td>
                                 <td style={{ color: 'var(--danger)', fontWeight: 700 }}>₹{p.flashSalePrice}</td>
                                 <td><span className="badge badge-cancelled">{Math.round((1 - p.flashSalePrice / p.price) * 100)}% OFF</span></td>
                                 <td>{new Date(p.flashSaleEnd).toLocaleString('en-IN')}</td>
-                                <td><button className="btn btn-danger btn-sm" onClick={() => removeFlashSale(p._id)}>End Sale</button></td>
+                                <td><button className="btn btn-danger btn-sm" onClick={() => removeFlashSale(p.id)}>End Sale</button></td>
                             </tr>
                         ))}
                         {flashProducts.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No active flash sales.</td></tr>}

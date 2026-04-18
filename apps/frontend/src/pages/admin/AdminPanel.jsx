@@ -95,11 +95,11 @@ function Dashboard() {
                             <thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
                             <tbody>
                                 {recentOrders.map(order => (
-                                    <tr key={order._id}>
-                                        <td>#{order._id.slice(-6).toUpperCase()}</td>
+                                    <tr key={order.id}>
+                                        <td>#{order.id?.slice(-6).toUpperCase()}</td>
                                         <td>{order.user?.name || 'N/A'}</td>
                                         <td>₹{order.totalAmount}</td>
-                                        <td><span className={`badge badge-${order.status}`}>{order.status}</span></td>
+                                        <td><span className={`badge badge-${order.status?.toLowerCase()}`}>{order.status?.toLowerCase()}</span></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -115,7 +115,7 @@ function Dashboard() {
                             <tbody>
                                 {(stats.locationStats || []).map((loc, i) => (
                                     <tr key={i}>
-                                        <td>{loc._id.city}, {loc._id.state}</td>
+                                        <td>{loc.city ?? loc._id?.city}, {loc.state ?? loc._id?.state}</td>
                                         <td>{loc.count}</td>
                                         <td>₹{loc.revenue}</td>
                                     </tr>
@@ -135,7 +135,7 @@ function Dashboard() {
                             <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Threshold</th><th>Price</th><th>Urgency</th></tr></thead>
                             <tbody>
                                 {lowStock.products.map(p => (
-                                    <tr key={p._id}>
+                                    <tr key={p.id}>
                                         <td><strong>{p.name}</strong></td>
                                         <td>{p.category || '—'}</td>
                                         <td style={{ color: p.stock === 0 ? 'var(--danger)' : 'var(--warning)', fontWeight: 700 }}>{p.stock}</td>
@@ -165,11 +165,11 @@ function Dashboard() {
                             <thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Refund Status</th><th>Reason</th></tr></thead>
                             <tbody>
                                 {refundStats.recentRefunds.map(r => (
-                                    <tr key={r._id}>
-                                        <td>#{r._id.slice(-6).toUpperCase()}</td>
+                                    <tr key={r.id}>
+                                        <td>#{r.id?.slice(-6).toUpperCase()}</td>
                                         <td>{r.user?.name || 'N/A'}</td>
                                         <td>₹{r.refundAmount || r.totalAmount}</td>
-                                        <td><span className={`badge badge-${r.refundStatus === 'completed' ? 'delivered' : r.refundStatus === 'approved' ? 'confirmed' : 'pending'}`}>{r.refundStatus}</span></td>
+                                        <td><span className={`badge badge-${r.refundStatus === 'COMPLETED' ? 'delivered' : r.refundStatus === 'APPROVED' ? 'confirmed' : 'pending'}`}>{r.refundStatus?.toLowerCase()}</span></td>
                                         <td style={{ color: 'var(--text-muted)' }}>{r.refundReason || '—'}</td>
                                     </tr>
                                 ))}
@@ -250,11 +250,10 @@ function AdminProducts() {
     };
 
     const handleEdit = (p) => {
-        setForm({ name: p.name, description: p.description, price: p.price, costPrice: p.costPrice || 0, category: p.category?._id || p.category, stock: p.stock, weight: p.weight, isFeatured: p.isFeatured, isActive: p.isActive !== false });
-        // Handle backwards compatibility where p.images might not exist but p.image might
+        setForm({ name: p.name, description: p.description, price: p.price, costPrice: p.costPrice || 0, category: p.category?.id || p.category, stock: p.stock, weight: p.weight, isFeatured: p.isFeatured, isActive: p.isActive !== false });
         const productImages = p.images && p.images.length > 0 ? p.images : (p.image ? [{ url: p.image }] : []);
         setImages(productImages);
-        setEditing(p._id);
+        setEditing(p.id);
         setShowForm(true);
     };
 
@@ -290,7 +289,7 @@ function AdminProducts() {
                             <label>Category</label>
                             <select className="form-control" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} required>
                                 <option value="">Select</option>
-                                {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div className="form-group">
@@ -359,7 +358,7 @@ function AdminProducts() {
                     <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                         {products.map(p => (
-                            <tr key={p._id}>
+                            <tr key={p.id}>
                                 <td><strong>{p.name}</strong><br /><small style={{ color: 'var(--text-muted)' }}>{p.weight}</small></td>
                                 <td>{p.category?.name}</td>
                                 <td>₹{p.price}</td>
@@ -372,10 +371,10 @@ function AdminProducts() {
                                 <td>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(p)}>Edit</button>
-                                        <button className="btn btn-sm" style={{ background: p.isActive !== false ? 'var(--warning)' : 'var(--success)', color: 'white' }} onClick={() => toggleStatus(p._id)}>
+                                        <button className="btn btn-sm" style={{ background: p.isActive !== false ? 'var(--warning)' : 'var(--success)', color: 'white' }} onClick={() => toggleStatus(p.id)}>
                                             {p.isActive !== false ? 'Disable' : 'Enable'}
                                         </button>
-                                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p._id)}>Del</button>
+                                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Del</button>
                                     </div>
                                 </td>
                             </tr>
@@ -432,13 +431,13 @@ function AdminCategories() {
                     <thead><tr><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
                     <tbody>
                         {categories.map(c => (
-                            <tr key={c._id}>
+                            <tr key={c.id}>
                                 <td><strong>{c.name}</strong></td>
                                 <td style={{ color: 'var(--text-secondary)' }}>{c.description}</td>
                                 <td>
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <button className="btn btn-secondary btn-sm" onClick={() => { setForm({ name: c.name, description: c.description }); setEditing(c._id); setShowForm(true); }}>Edit</button>
-                                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c._id)}>Del</button>
+                                        <button className="btn btn-secondary btn-sm" onClick={() => { setForm({ name: c.name, description: c.description }); setEditing(c.id); setShowForm(true); }}>Edit</button>
+                                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}>Del</button>
                                     </div>
                                 </td>
                             </tr>
@@ -456,12 +455,12 @@ function AdminOrders() {
     const [filter, setFilter] = useState('');
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [refundModal, setRefundModal] = useState(null);
-    const [refundForm, setRefundForm] = useState({ refundStatus: 'approved', refundReason: '', refundAmount: '' });
+    const [refundForm, setRefundForm] = useState({ refundStatus: 'APPROVED', refundReason: '', refundAmount: '' });
     const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', carrier: '', trackingUrl: '' });
 
     const loadOrders = useCallback(() => {
         const params = filter ? `?status=${filter}` : '';
-        API.get(`/orders${params}`).then(res => setOrders(res.data.orders));
+        API.get(`/orders${params}`).then(res => setOrders(res.data.orders || []));
     }, [filter]);
 
     useEffect(() => { loadOrders(); }, [loadOrders]);
@@ -473,25 +472,24 @@ function AdminOrders() {
 
     const handleRefund = async (e) => {
         e.preventDefault();
-        await API.put(`/orders/${refundModal._id}/refund`, {
+        await API.put(`/orders/${refundModal.id}/refund`, {
             ...refundForm,
             refundAmount: refundForm.refundAmount || refundModal.totalAmount
         });
         setRefundModal(null);
-        setRefundForm({ refundStatus: 'approved', refundReason: '', refundAmount: '' });
+        setRefundForm({ refundStatus: 'APPROVED', refundReason: '', refundAmount: '' });
         loadOrders();
     };
 
     const handleTracking = async (orderId) => {
         await API.put(`/orders/${orderId}/tracking`, trackingForm);
         setTrackingForm({ trackingNumber: '', carrier: '', trackingUrl: '' });
-        // Refresh selected order
         const res = await API.get(`/orders/${orderId}`);
         setSelectedOrder(res.data);
         loadOrders();
     };
 
-    const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
     return (
         <div className="animate-fadeIn">
@@ -499,7 +497,7 @@ function AdminOrders() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
                 <button className={`btn btn-sm ${!filter ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter('')}>All</button>
                 {statuses.map(s => (
-                    <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>{s}</button>
+                    <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(s)}>{s.toLowerCase()}</button>
                 ))}
             </div>
 
@@ -507,14 +505,14 @@ function AdminOrders() {
             {refundModal && (
                 <div className="modal-overlay" onClick={() => setRefundModal(null)}>
                     <div className="card" style={{ width: '90%', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: 20, color: 'var(--danger)' }}><FiXCircle /> Process Refund — #{refundModal._id.slice(-6).toUpperCase()}</h3>
+                        <h3 style={{ marginBottom: 20, color: 'var(--danger)' }}><FiXCircle /> Process Refund — #{refundModal.id?.slice(-6).toUpperCase()}</h3>
                         <form onSubmit={handleRefund}>
                             <div className="form-group">
                                 <label>Refund Status</label>
                                 <select className="form-control" value={refundForm.refundStatus} onChange={e => setRefundForm({ ...refundForm, refundStatus: e.target.value })}>
-                                    <option value="requested">Requested</option>
-                                    <option value="approved">Approved</option>
-                                    <option value="completed">Completed</option>
+                                    <option value="REQUESTED">Requested</option>
+                                    <option value="APPROVED">Approved</option>
+                                    <option value="COMPLETED">Completed</option>
                                 </select>
                             </div>
                             <div className="form-group">
@@ -539,7 +537,7 @@ function AdminOrders() {
                 <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
                     <div className="card" style={{ width: '90%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <h3>Order Details #{selectedOrder._id.slice(-6).toUpperCase()}</h3>
+                            <h3>Order Details #{selectedOrder.id?.slice(-6).toUpperCase()}</h3>
                             <button className="btn btn-sm btn-secondary" onClick={() => setSelectedOrder(null)}>✕ Close</button>
                         </div>
                         <div className="grid grid-2" style={{ gap: 20 }}>
@@ -547,14 +545,14 @@ function AdminOrders() {
                                 <h4 style={{ marginBottom: 8, color: 'var(--primary)' }}>Customer Info</h4>
                                 <p><strong>Name:</strong> {selectedOrder.user?.name}</p>
                                 <p><strong>Email:</strong> {selectedOrder.user?.email}</p>
-                                <p><strong>Phone:</strong> {selectedOrder.shippingAddress.phone}</p>
+                                <p><strong>Phone:</strong> {selectedOrder.shippingPhone}</p>
                             </div>
                             <div>
                                 <h4 style={{ marginBottom: 8, color: 'var(--primary)' }}>Shipping Address</h4>
-                                <p>{selectedOrder.shippingAddress.name}</p>
-                                <p>{selectedOrder.shippingAddress.street}</p>
-                                <p>{selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state}</p>
-                                <p>PIN: {selectedOrder.shippingAddress.pincode}</p>
+                                <p>{selectedOrder.shippingName}</p>
+                                <p>{selectedOrder.shippingStreet}</p>
+                                <p>{selectedOrder.shippingCity}, {selectedOrder.shippingState}</p>
+                                <p>PIN: {selectedOrder.shippingPincode}</p>
                             </div>
                         </div>
 
@@ -579,7 +577,7 @@ function AdminOrders() {
                                     <input className="form-control" placeholder="Tracking Number" value={trackingForm.trackingNumber} onChange={e => setTrackingForm({ ...trackingForm, trackingNumber: e.target.value })} />
                                     <div style={{ display: 'flex', gap: 8 }}>
                                         <input className="form-control" placeholder="Tracking URL" value={trackingForm.trackingUrl} onChange={e => setTrackingForm({ ...trackingForm, trackingUrl: e.target.value })} style={{ flex: 1 }} />
-                                        <button className="btn btn-primary btn-sm" onClick={() => handleTracking(selectedOrder._id)} disabled={!trackingForm.trackingNumber}>
+                                        <button className="btn btn-primary btn-sm" onClick={() => handleTracking(selectedOrder.id)} disabled={!trackingForm.trackingNumber}>
                                             <FiTruck /> Save
                                         </button>
                                     </div>
@@ -588,10 +586,10 @@ function AdminOrders() {
                         </div>
 
                         {/* Refund Status */}
-                        {selectedOrder.refundStatus && selectedOrder.refundStatus !== 'none' && (
+                        {selectedOrder.refundStatus && selectedOrder.refundStatus !== 'NONE' && (
                             <div style={{ background: 'rgba(239,68,68,0.08)', borderRadius: 'var(--radius-sm)', padding: 16, marginBottom: 20, border: '1px solid rgba(239,68,68,0.2)' }}>
                                 <h4 style={{ color: 'var(--danger)', marginBottom: 8 }}><FiXCircle /> Refund Information</h4>
-                                <p><strong>Status:</strong> <span className={`badge badge-${selectedOrder.refundStatus === 'completed' ? 'delivered' : 'pending'}`}>{selectedOrder.refundStatus}</span></p>
+                                <p><strong>Status:</strong> <span className={`badge badge-${selectedOrder.refundStatus === 'COMPLETED' ? 'delivered' : 'pending'}`}>{selectedOrder.refundStatus?.toLowerCase()}</span></p>
                                 {selectedOrder.refundReason && <p><strong>Reason:</strong> {selectedOrder.refundReason}</p>}
                                 {selectedOrder.refundAmount > 0 && <p><strong>Amount:</strong> ₹{selectedOrder.refundAmount}</p>}
                             </div>
@@ -614,15 +612,15 @@ function AdminOrders() {
                             <h3 style={{ color: 'var(--primary)' }}>Total: ₹{selectedOrder.totalAmount}</h3>
                         </div>
                         <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                            <select className="form-control" style={{ flex: 1 }} value={selectedOrder.status} onChange={e => { updateStatus(selectedOrder._id, e.target.value); setSelectedOrder({ ...selectedOrder, status: e.target.value }); }}>
-                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            <select className="form-control" style={{ flex: 1 }} value={selectedOrder.status} onChange={e => { updateStatus(selectedOrder.id, e.target.value); setSelectedOrder({ ...selectedOrder, status: e.target.value }); }}>
+                                {statuses.map(s => <option key={s} value={s}>{s.toLowerCase()}</option>)}
                             </select>
                             <button className="btn btn-secondary" onClick={() => {
                                 const win = window.open('', '_blank');
                                 win.document.write(`
                                     <html>
                                     <head>
-                                        <title>Invoice - ${selectedOrder._id.slice(-6).toUpperCase()}</title>
+                                        <title>Invoice - ${selectedOrder.id?.slice(-6).toUpperCase()}</title>
                                         <style>
                                             body { font-family: sans-serif; padding: 40px; color: #333; }
                                             .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e8751a; padding-bottom: 20px; }
@@ -642,17 +640,17 @@ function AdminOrders() {
                                             </div>
                                             <div style="text-align: right">
                                                 <h2>INVOICE</h2>
-                                                <p>Order ID: <strong>#${selectedOrder._id.slice(-6).toUpperCase()}</strong></p>
+                                                <p>Order ID: <strong>#${selectedOrder.id?.slice(-6).toUpperCase()}</strong></p>
                                                 <p>Date: ${new Date(selectedOrder.createdAt).toLocaleDateString('en-IN')}</p>
                                             </div>
                                         </div>
                                         <div class="info-grid">
                                             <div>
                                                 <h3>Billing/Shipping To:</h3>
-                                                <p><strong>${selectedOrder.shippingAddress.name}</strong></p>
-                                                <p>${selectedOrder.shippingAddress.street}</p>
-                                                <p>${selectedOrder.shippingAddress.city}, ${selectedOrder.shippingAddress.state} - ${selectedOrder.shippingAddress.pincode}</p>
-                                                <p>Phone: ${selectedOrder.shippingAddress.phone}</p>
+                                                <p><strong>${selectedOrder.shippingName}</strong></p>
+                                                <p>${selectedOrder.shippingStreet}</p>
+                                                <p>${selectedOrder.shippingCity}, ${selectedOrder.shippingState} - ${selectedOrder.shippingPincode}</p>
+                                                <p>Phone: ${selectedOrder.shippingPhone}</p>
                                             </div>
                                             <div style="text-align: right">
                                                 <h3>Customer Information:</h3>
@@ -686,13 +684,13 @@ function AdminOrders() {
                             }}>
                                 🖨️ Print Invoice
                             </button>
-                            {selectedOrder.status !== 'cancelled' && selectedOrder.refundStatus === 'none' && (
+                            {selectedOrder.status !== 'CANCELLED' && selectedOrder.refundStatus === 'NONE' && (
                                 <button className="btn btn-danger" onClick={() => { setRefundModal(selectedOrder); setSelectedOrder(null); }}>
                                     <FiXCircle /> Refund / Cancel
                                 </button>
                             )}
-                            {selectedOrder.status !== 'cancelled' && (
-                                <button className="btn btn-danger" style={{ background: 'var(--danger)' }} onClick={() => { updateStatus(selectedOrder._id, 'cancelled'); setSelectedOrder(null); }}>
+                            {selectedOrder.status !== 'CANCELLED' && (
+                                <button className="btn btn-danger" style={{ background: 'var(--danger)' }} onClick={() => { updateStatus(selectedOrder.id, 'CANCELLED'); setSelectedOrder(null); }}>
                                     Cancel Order
                                 </button>
                             )}
@@ -706,16 +704,16 @@ function AdminOrders() {
                     <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Refund</th><th>Date</th><th>Actions</th></tr></thead>
                     <tbody>
                         {orders.map(order => (
-                            <tr key={order._id}>
-                                <td>#{order._id.slice(-6).toUpperCase()}</td>
+                            <tr key={order.id}>
+                                <td>#{order.id?.slice(-6).toUpperCase()}</td>
                                 <td>{order.user?.name}<br /><small style={{ color: 'var(--text-muted)' }}>{order.user?.email}</small></td>
-                                <td>{order.items.length} items</td>
+                                <td>{order.items?.length} items</td>
                                 <td>₹{order.totalAmount}</td>
-                                <td><span className={`badge badge-${order.status}`}>{order.status}</span></td>
+                                <td><span className={`badge badge-${order.status?.toLowerCase()}`}>{order.status?.toLowerCase()}</span></td>
                                 <td>
-                                    {order.refundStatus && order.refundStatus !== 'none' ? (
-                                        <span className={`badge badge-${order.refundStatus === 'completed' ? 'delivered' : 'pending'}`}>
-                                            {order.refundStatus}
+                                    {order.refundStatus && order.refundStatus !== 'NONE' ? (
+                                        <span className={`badge badge-${order.refundStatus === 'COMPLETED' ? 'delivered' : 'pending'}`}>
+                                            {order.refundStatus?.toLowerCase()}
                                         </span>
                                     ) : '—'}
                                 </td>
@@ -723,9 +721,9 @@ function AdminOrders() {
                                 <td>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <button className="btn btn-primary btn-sm" onClick={() => setSelectedOrder(order)}>Details</button>
-                                        <select className="form-control" value={order.status} onChange={e => updateStatus(order._id, e.target.value)}
+                                        <select className="form-control" value={order.status} onChange={e => updateStatus(order.id, e.target.value)}
                                             style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: 120 }}>
-                                            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            {statuses.map(s => <option key={s} value={s}>{s.toLowerCase()}</option>)}
                                         </select>
                                     </div>
                                 </td>
@@ -768,7 +766,7 @@ function AdminUsers() {
 
     const handleSuspend = async () => {
         if (!suspendModal) return;
-        await API.put(`/users/${suspendModal._id}/suspend`, { reason: suspendReason });
+        await API.put(`/users/${suspendModal.id}/suspend`, { reason: suspendReason });
         setSuspendModal(null);
         setSuspendReason('');
         loadUsers();
@@ -821,7 +819,7 @@ function AdminUsers() {
                     <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                         {users.map(u => (
-                            <tr key={u._id} style={u.isSuspended ? { background: 'rgba(239,68,68,0.05)' } : {}}>
+                            <tr key={u.id} style={u.isSuspended ? { background: 'rgba(239,68,68,0.05)' } : {}}>
                                 <td>
                                     <strong>{u.name}</strong>
                                     {u.isSuspended && (
@@ -832,21 +830,21 @@ function AdminUsers() {
                                 </td>
                                 <td>{u.email}</td>
                                 <td>{u.phone || '—'}</td>
-                                <td><span className={`badge badge-${u.role}`}>{u.role}</span></td>
+                                <td><span className={`badge badge-${u.role?.toLowerCase()}`}>{u.role?.toLowerCase()}</span></td>
                                 <td><span style={{ color: u.isActive ? 'var(--success)' : 'var(--danger)' }}>{u.isActive ? 'Active' : 'Inactive'}</span></td>
                                 <td>
                                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                        <select className="form-control" value={u.role} onChange={e => changeRole(u._id, e.target.value)}
+                                        <select className="form-control" value={u.role} onChange={e => changeRole(u.id, e.target.value)}
                                             style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: 90 }}>
-                                            <option value="user">User</option>
-                                            <option value="staff">Staff</option>
-                                            <option value="admin">Admin</option>
+                                            <option value="USER">User</option>
+                                            <option value="STAFF">Staff</option>
+                                            <option value="ADMIN">Admin</option>
                                         </select>
-                                        <button className="btn btn-secondary btn-sm" onClick={() => toggleStatus(u._id)}>
+                                        <button className="btn btn-secondary btn-sm" onClick={() => toggleStatus(u.id)}>
                                             {u.isActive ? 'Disable' : 'Enable'}
                                         </button>
                                         {u.isSuspended ? (
-                                            <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'white' }} onClick={() => handleUnsuspend(u._id)}>
+                                            <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'white' }} onClick={() => handleUnsuspend(u.id)}>
                                                 Unsuspend
                                             </button>
                                         ) : (
@@ -915,7 +913,10 @@ function AdminAttendance() {
     };
 
     const getStatus = (userId) => {
-        const record = attendance.find(a => a.user?._id === userId);
+        const record = attendance.find(a => {
+            const uid = typeof a.user === 'object' ? a.user?.id : a.user;
+            return uid === userId;
+        });
         return record ? record.status : 'not-marked';
     };
 
@@ -942,19 +943,19 @@ function AdminAttendance() {
                             <thead><tr><th>Staff Name</th><th>Status</th><th>Mark Attendance</th></tr></thead>
                             <tbody>
                                 {staff.map(s => (
-                                    <tr key={s._id}>
+                                    <tr key={s.id}>
                                         <td>{s.name}</td>
                                         <td>
-                                            <span className={`badge badge-${getStatus(s._id)}`}>
-                                                {getStatus(s._id)}
+                                            <span className={`badge badge-${getStatus(s.id)}`}>
+                                                {getStatus(s.id)}
                                             </span>
                                         </td>
                                         <td>
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'white' }} onClick={() => markAttendance(s._id, 'present')}>Present</button>
-                                                <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'white' }} onClick={() => markAttendance(s._id, 'late')}>Late</button>
-                                                <button className="btn btn-sm" style={{ background: 'var(--info)', color: 'white' }} onClick={() => markAttendance(s._id, 'half-day')}>Half-Day</button>
-                                                <button className="btn btn-sm" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => markAttendance(s._id, 'absent')}>Absent</button>
+                                                <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'white' }} onClick={() => markAttendance(s.id, 'present')}>Present</button>
+                                                <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'white' }} onClick={() => markAttendance(s.id, 'late')}>Late</button>
+                                                <button className="btn btn-sm" style={{ background: 'var(--info)', color: 'white' }} onClick={() => markAttendance(s.id, 'half-day')}>Half-Day</button>
+                                                <button className="btn btn-sm" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => markAttendance(s.id, 'absent')}>Absent</button>
                                             </div>
                                         </td>
                                     </tr>

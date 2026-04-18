@@ -1,14 +1,13 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiArrowLeft, FiStar, FiEdit, FiTrash2, FiCheck, FiMapPin, FiClock, FiAward } from 'react-icons/fi';
-import { Skeleton, Tabs } from '@heroui/react';
+import { FiShoppingCart, FiStar, FiEdit, FiTrash2, FiCheck, FiMapPin, FiClock, FiAward } from 'react-icons/fi';
+import { Skeleton, Tabs, Tab, TabList, TabPanel, Accordion, AccordionItem, AccordionTrigger, AccordionBody } from '@heroui/react';
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
 import './ProductDetail.css';
 
-// Lazy load Accordion component
-const Accordion = lazy(() => import('@heroui/react').then(module => ({ default: module.Accordion })));
+// Accordion is imported directly from @heroui/react above
 
 // Memoized Skeleton components
 const ProductImageSkeleton = memo(() => (
@@ -73,9 +72,9 @@ export default function ProductDetail() {
             // Save to recently viewed
             try {
                 const stored = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
-                const filtered = stored.filter(item => item._id !== res.data._id);
+                const filtered = stored.filter(item => (item.id || item._id) !== res.data.id);
                 filtered.unshift({
-                    _id: res.data._id,
+                    id: res.data.id,
                     name: res.data.name,
                     price: res.data.price,
                     image: firstImage,
@@ -95,7 +94,7 @@ export default function ProductDetail() {
             return;
         }
         for (let i = 0; i < quantity; i++) {
-            await addToCart(product._id);
+            await addToCart(product.id);
         }
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
@@ -140,35 +139,9 @@ export default function ProductDetail() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="page container" style={{ paddingTop: 32 }}>
-                <div className="product-hero-grid">
-                    {/* Image Skeleton */}
-                    <ProductImageSkeleton />
-                    
-                    {/* Product Details Skeleton */}
-                    <ProductDetailsSkeleton />
-                </div>
-            </div>
-        );
-    }
-
-    if (!product) {
-        return (
-            <div className="page container">
-                <div className="empty-state">
-                    <div className="icon">🔍</div>
-                    <h3>Product not found</h3>
-                    <Link to="/products" className="btn btn-primary">Back to Products</Link>
-                </div>
-            </div>
-        );
-    }
-
     const weightOptions = ['250g', '500g', '1kg'];
 
-    // Memoize tab content to prevent unnecessary re-renders
+    // All useMemo hooks must be called unconditionally — before any early returns
     const descriptionTabContent = useMemo(() => (
         <>
             {/* Details Bento Grid */}
@@ -214,7 +187,7 @@ export default function ProductDetail() {
             {/* Heritage Image */}
             <div className="heritage-image-container">
                 <img 
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWp7hMcsN2rZFeI8uERn3fgW5OHrH7Ta-aOPt0m8qDaeD0z6K9582VH6JHdBFtkTa4BuZQqMHFspqsFprvfR1H9aDP8p1YuJ66-QTP06-kTv0o04_1bugeR53gPYIwjOJFm_t4_WTNRyaNcri_If3wjTau2A7YfgFChTo95MUdEfGDqRjytUTIUHKgsLUpwymT-Rol73TjwJcmA1-cdW9clKcMj0kEOiTO0p7PZySLAPX3s5xyBGOxNt1WazuNIfkmRh5UbkDVsek" 
+                    src="https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=1200&h=600&fit=crop&q=80" 
                     alt="Heritage" 
                     className="heritage-image"
                 />
@@ -308,7 +281,7 @@ export default function ProductDetail() {
                         Our customers from across the globe share their experiences with the authentic taste of Rajasthan.
                     </p>
                 </div>
-                {user && !reviews.find(r => r.user?._id === user._id) && (
+                {user && !reviews.find(r => (r.user?.id || r.user) === user.id) && (
                     <button 
                         className="btn btn-primary" 
                         onClick={() => { setShowReviewForm(!showReviewForm); setEditingReview(null); setReviewForm({ rating: 5, comment: '', images: [] }); }}
@@ -394,9 +367,9 @@ export default function ProductDetail() {
                                 </span>
                             </div>
                         </div>
-                        {user && (user._id === review.user?._id || user.role === 'admin') && (
+                        {user && (user.id === (review.user?.id || review.user) || user.role === 'ADMIN') && (
                             <div className="review-actions">
-                                {user._id === review.user?._id && (
+                                {user.id === (review.user?.id || review.user) && (
                                     <button className="btn btn-secondary btn-sm" onClick={() => {
                                         setReviewForm({ rating: review.rating, comment: review.comment, images: null, existingImages: review.images });
                                         setEditingReview(review._id);
@@ -417,6 +390,30 @@ export default function ProductDetail() {
             )}
         </div>
     ), [reviews, user, showReviewForm, editingReview, reviewForm, handleReviewSubmit, handleDeleteReview]);
+
+    // Early returns AFTER all hooks
+    if (loading) {
+        return (
+            <div className="page container" style={{ paddingTop: 32 }}>
+                <div className="product-hero-grid">
+                    <ProductImageSkeleton />
+                    <ProductDetailsSkeleton />
+                </div>
+            </div>
+        );
+    }
+
+    if (!product) {
+        return (
+            <div className="page container">
+                <div className="empty-state">
+                    <div className="icon">🔍</div>
+                    <h3>Product not found</h3>
+                    <Link to="/products" className="btn btn-primary">Back to Products</Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ background: 'var(--surface)', minHeight: '100vh' }}>
@@ -606,28 +603,28 @@ export default function ProductDetail() {
             {/* Tabs Section */}
             <section className="container" style={{ paddingBottom: 80 }}>
                 <Tabs
-                    defaultValue="description"
+                    defaultSelectedKey="description"
                     color="primary"
                     size="lg"
                     style={{ marginBottom: 40 }}
                 >
-                    <Tabs.List>
-                        <Tabs.Tab value="description">Description</Tabs.Tab>
-                        <Tabs.Tab value="reviews">Reviews ({stats.totalReviews})</Tabs.Tab>
-                        <Tabs.Tab value="specifications">Specifications</Tabs.Tab>
-                    </Tabs.List>
+                    <TabList>
+                        <Tab key="description">Description</Tab>
+                        <Tab key="reviews">Reviews ({stats.totalReviews})</Tab>
+                        <Tab key="specifications">Specifications</Tab>
+                    </TabList>
 
-                    <Tabs.Panel value="description">
+                    <TabPanel key="description">
                         {descriptionTabContent}
-                    </Tabs.Panel>
+                    </TabPanel>
 
-                    <Tabs.Panel value="reviews">
+                    <TabPanel key="reviews">
                         {reviewsTabContent}
-                    </Tabs.Panel>
+                    </TabPanel>
 
-                    <Tabs.Panel value="specifications">
+                    <TabPanel key="specifications">
                         {specificationsTabContent}
-                    </Tabs.Panel>
+                    </TabPanel>
                 </Tabs>
             </section>
 
@@ -643,65 +640,61 @@ export default function ProductDetail() {
                     Frequently Asked Questions
                 </h2>
                 
-                <Suspense fallback={<div style={{ textAlign: 'center', padding: 40 }}>Loading...</div>}>
-                    <Accordion
-                        multiple
-                        defaultValue={['shipping']}
-                        style={{ maxWidth: 800, margin: '0 auto' }}
-                    >
-                        <Accordion.Item value="shipping">
-                            <Accordion.Trigger>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                    What are the shipping charges?
-                                </h3>
-                            </Accordion.Trigger>
-                            <Accordion.Content>
-                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                                    We offer FREE shipping on orders above ₹500. For orders below ₹500, a flat delivery charge of ₹40 applies.
-                                </p>
-                            </Accordion.Content>
-                        </Accordion.Item>
+                <Accordion
+                    style={{ maxWidth: 800, margin: '0 auto' }}
+                >
+                    <AccordionItem key="shipping">
+                        <AccordionTrigger>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                What are the shipping charges?
+                            </h3>
+                        </AccordionTrigger>
+                        <AccordionBody>
+                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                We offer FREE shipping on orders above ₹500. For orders below ₹500, a flat delivery charge of ₹40 applies.
+                            </p>
+                        </AccordionBody>
+                    </AccordionItem>
 
-                        <Accordion.Item value="freshness">
-                            <Accordion.Trigger>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                    How do you ensure freshness?
-                                </h3>
-                            </Accordion.Trigger>
-                            <Accordion.Content>
-                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                                    All our products are made fresh daily using traditional methods. We package them immediately to lock in the freshness and flavor.
-                                </p>
-                            </Accordion.Content>
-                        </Accordion.Item>
+                    <AccordionItem key="freshness">
+                        <AccordionTrigger>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                How do you ensure freshness?
+                            </h3>
+                        </AccordionTrigger>
+                        <AccordionBody>
+                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                All our products are made fresh daily using traditional methods. We package them immediately to lock in the freshness and flavor.
+                            </p>
+                        </AccordionBody>
+                    </AccordionItem>
 
-                        <Accordion.Item value="ingredients">
-                            <Accordion.Trigger>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                    Are your products 100% vegetarian?
-                                </h3>
-                            </Accordion.Trigger>
-                            <Accordion.Content>
-                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                                    Yes, all our products are 100% vegetarian and made with premium quality ingredients sourced from trusted suppliers.
-                                </p>
-                            </Accordion.Content>
-                        </Accordion.Item>
+                    <AccordionItem key="ingredients">
+                        <AccordionTrigger>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                Are your products 100% vegetarian?
+                            </h3>
+                        </AccordionTrigger>
+                        <AccordionBody>
+                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                Yes, all our products are 100% vegetarian and made with premium quality ingredients sourced from trusted suppliers.
+                            </p>
+                        </AccordionBody>
+                    </AccordionItem>
 
-                        <Accordion.Item value="returns">
-                            <Accordion.Trigger>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                    What is your return policy?
-                                </h3>
-                            </Accordion.Trigger>
-                            <Accordion.Content>
-                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                                    We accept returns within 7 days of delivery if the product is damaged or not as described. Please contact our customer support for assistance.
-                                </p>
-                            </Accordion.Content>
-                        </Accordion.Item>
-                    </Accordion>
-                </Suspense>
+                    <AccordionItem key="returns">
+                        <AccordionTrigger>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                What is your return policy?
+                            </h3>
+                        </AccordionTrigger>
+                        <AccordionBody>
+                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                                We accept returns within 7 days of delivery if the product is damaged or not as described. Please contact our customer support for assistance.
+                            </p>
+                        </AccordionBody>
+                    </AccordionItem>
+                </Accordion>
             </section>
         </div>
     );

@@ -209,8 +209,8 @@ export default function Products() {
                         }}>
                             {suggestions.length > 0 ? suggestions.map(s => (
                                 <Link
-                                    key={s._id}
-                                    to={`/product/${s._id}`}
+                                    key={s.id}
+                                    to={`/product/${s.id}`}
                                     onClick={() => setShowSuggestions(false)}
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 16,
@@ -306,9 +306,9 @@ export default function Products() {
                                 >All</button>
                                 {categories.map(cat => (
                                     <button
-                                        key={cat._id}
-                                        className={`btn btn-sm ${activeCategory === cat._id ? 'btn-primary' : 'btn-secondary'}`}
-                                        onClick={() => updateFilter('category', cat._id)}
+                                        key={cat.id}
+                                        className={`btn btn-sm ${activeCategory === cat.id ? 'btn-primary' : 'btn-secondary'}`}
+                                        onClick={() => updateFilter('category', cat.id)}
                                         style={{ fontSize: '0.8rem' }}
                                     >{cat.name}</button>
                                 ))}
@@ -397,7 +397,7 @@ export default function Products() {
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Active:</span>
                     {activeCategory && (
                         <span className="badge badge-confirmed" style={{ cursor: 'pointer' }} onClick={() => updateFilter('category', '')}>
-                            {categories.find(c => c._id === activeCategory)?.name} ✕
+                            {categories.find(c => c.id === activeCategory)?.name} ✕
                         </span>
                     )}
                     {activeTag && (
@@ -443,8 +443,8 @@ export default function Products() {
             ) : (
                 <div className="grid grid-4" style={{ marginTop: '20px' }}>
                     {currentProducts.map(product => (
-                        <div key={product._id} className="product-card animate-fadeIn">
-                            <Link to={`/product/${product._id}`} style={{ display: 'block' }}>
+                        <div key={product.id} className="product-card animate-fadeIn">
+                            <Link to={`/product/${product.id}`} style={{ display: 'block' }}>
                                 <div className="product-image">
                                     {(product.images && product.images.length > 0) || product.image ? (
                                         <img src={product.images && product.images.length > 0 ? product.images[0].url : (product.image?.startsWith('http') ? product.image : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${product.image}`)} alt={product.name} />
@@ -490,7 +490,7 @@ export default function Products() {
                                 </div>
                             </Link>
                             <div className="product-actions" style={{ paddingTop: product.tags?.length > 0 ? 0 : 24 }}>
-                                <button className="btn btn-primary" style={{ flex: 1, padding: '10px 0' }} onClick={(e) => { e.preventDefault(); handleAddToCart(product._id); }}>Add to Cart</button>
+                                <button className="btn btn-primary" style={{ flex: 1, padding: '10px 0' }} onClick={(e) => { e.preventDefault(); handleAddToCart(product.id); }}>Add to Cart</button>
                             </div>
                         </div>
                     ))}
@@ -506,8 +506,6 @@ export default function Products() {
                         onChange={handlePageChange}
                         color="primary"
                         size="lg"
-                        showControls
-                        showShadow
                     />
                 </div>
             )}
@@ -522,8 +520,8 @@ export default function Products() {
                     <div style={{ display: 'flex', gap: 24, overflowX: 'auto', paddingBottom: 16 }}>
                         {recentlyViewed.map(item => (
                             <Link
-                                key={item._id}
-                                to={`/product/${item._id}`}
+                                key={item.id || item._id}
+                                to={`/product/${item.id || item._id}`}
                                 style={{
                                     minWidth: 220, background: 'var(--bg-card)', border: '1px solid var(--border)',
                                     borderRadius: 'var(--radius)', overflow: 'hidden', flexShrink: 0,

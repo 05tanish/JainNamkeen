@@ -1,9 +1,9 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import * as OrderService from './order.service.js';
+import OrderService from './order.service.js';
 
 export const createOrder = asyncHandler(async (req, res) => {
-    const order = await OrderService.createOrder(req.user._id, req.body);
+    const order = await OrderService.createOrder(req.user.id, req.body);
     successResponse(res, { statusCode: 201, data: order, message: 'Order placed successfully' });
 });
 
@@ -23,12 +23,12 @@ export const getOrder = asyncHandler(async (req, res) => {
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
-    const order = await OrderService.updateOrderStatus(req.params.id, req.body.status, req.user._id);
+    const order = await OrderService.updateOrderStatus(req.params.id, req.body.status, req.user.id);
     successResponse(res, { statusCode: 200, data: order, message: 'Order status updated' });
 });
 
 export const processRefund = asyncHandler(async (req, res) => {
-    const order = await OrderService.processRefund(req.params.id, req.body, req.user._id);
+    const order = await OrderService.processRefund(req.params.id, req.body, req.user.id);
     successResponse(res, { statusCode: 200, data: order, message: 'Refund processed' });
 });
 

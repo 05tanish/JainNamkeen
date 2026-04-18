@@ -31,25 +31,59 @@ const transports = [
     }),
 ];
 
+// ── Loki Transport with graceful failure handling ────────────────────────────
 if (process.env.LOKI_HOST) {
-    const lokiTransport = new LokiTransport({
-        host: process.env.LOKI_HOST,
-        labels: {
-            app: 'ecommerce-backend',
-            env: process.env.NODE_ENV || 'development',
-            service: 'api'
-        },
-        json: true,
-        format: json(),
-        replaceTimestamp: true,
-        onConnectionError: (err) => console.error('Loki connection error:', err),
-        ...(process.env.LOKI_USERNAME && process.env.LOKI_PASSWORD && {
-            basicAuth: `${process.env.LOKI_USERNAME}:${process.env.LOKI_PASSWORD}`
-        })
-    });
-    
-    transports.push(lokiTransport);
-    console.log('✅ Grafana Loki logging enabled');
+    let lokiRetries = 0;
+    const MAX_LOKI_RETRIES = 3;
+    let lokiEnabled = true;
+
+    try {
+        const lokiTransport = new LokiTransport({
+            host: process.env.LOKI_HOST,
+            labels: {
+                app: 'ecommerce-backend',
+                env: process.env.NODE_ENV || 'development',
+                service: 'api'
+            },
+            json: true,
+            format: json(),
+            replaceTimestamp: true,
+            timeout: 5000, // 5 second timeout
+            onConnectionError: (err) => {
+                lokiRetries++;
+                if (lokiRetries <= MAX_LOKI_RETRIES) {
+                    console.warn(`⚠️  Loki connection error (attempt ${lokiRetries}/${MAX_LOKI_RETRIES}): ${err.message}`);
+                } else if (lokiEnabled) {
+                    lokiEnabled = false;
+                    console.warn(`❌ Loki unavailable after ${MAX_LOKI_RETRIES} attempts — logging to Loki disabled`);
+                }
+            },
+            ...(process.env.LOKI_USERNAME && process.env.LOKI_PASSWORD && {
+                basicAuth: `${process.env.LOKI_USERNAME}:${process.env.LOKI_PASSWORD}`
+            })
+        });
+
+        // Handle transport errors gracefully
+        lokiTransport.on('error', (err) => {
+            lokiRetries++;
+            if (lokiRetries <= MAX_LOKI_RETRIES) {
+                console.warn(`⚠️  Loki transport error (attempt ${lokiRetries}/${MAX_LOKI_RETRIES}): ${err.message}`);
+            } else if (lokiEnabled) {
+                lokiEnabled = false;
+                console.warn(`❌ Loki transport failed after ${MAX_LOKI_RETRIES} attempts — continuing without Loki`);
+            }
+        });
+
+        lokiTransport.on('finish', () => {
+            if (lokiRetries === 0) {
+                console.log('✅ Grafana Loki logging enabled');
+            }
+        });
+        
+        transports.push(lokiTransport);
+    } catch (err) {
+        console.warn(`⚠️  Failed to initialize Loki transport: ${err.message} — logging to Loki disabled`);
+    }
 }
 
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_FILE_LOGGING === 'true') {
@@ -86,7 +120,7 @@ logger.logRequest = (req, res, duration) => {
         duration: `${duration}ms`,
         ip: req.ip || req.socket?.remoteAddress,
         userAgent: req.get('user-agent'),
-        userId: req.user?._id,
+        userId: req.user?.id,
     });
 };
 
@@ -100,7 +134,7 @@ logger.logError = (error, req = null) => {
         log.method = req.method;
         log.url = req.originalUrl;
         log.ip = req.ip || req.socket?.remoteAddress;
-        log.userId = req.user?._id;
+        log.userId = req.user?.id;
     }
     logger.error('Application Error', log);
 };

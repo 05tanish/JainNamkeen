@@ -25,7 +25,9 @@ export const getConversionRate = async () => {
             acc[month] = { _id: month, orders: 0, revenue: 0 };
         }
         acc[month].orders += 1;
-        acc[month].revenue += Number(order.totalAmount);
+        // Handle Decimal type - convert to number safely
+        const amount = order.totalAmount ? Number(order.totalAmount.toString()) : 0;
+        acc[month].revenue += amount;
         return acc;
     }, {});
 
@@ -46,8 +48,7 @@ export const getConversionRate = async () => {
 export const getLowStockAlerts = async () => {
     const products = await prisma.product.findMany({
         where: {
-            isActive: true,
-            stock: { lte: prisma.product.fields.lowStockThreshold }
+            isActive: true
         },
         include: {
             category: { select: { name: true } }
@@ -55,21 +56,25 @@ export const getLowStockAlerts = async () => {
         orderBy: { stock: 'asc' }
     });
 
+    // Filter products where stock is less than or equal to their threshold
+    const lowStockProducts = products.filter(p => p.stock <= p.lowStockThreshold);
+
     return {
-        count: products.length,
-        products: products.map(p => ({
+        count: lowStockProducts.length,
+        products: lowStockProducts.map(p => ({
             _id: p.id,
             name: p.name,
             stock: p.stock,
             threshold: p.lowStockThreshold,
             category: p.category?.name,
-            price: p.price
+            // Handle Decimal type - convert to number safely
+            price: p.price ? Number(p.price.toString()) : 0
         }))
     };
 };
 
 export const getRefundStats = async () => {
-    const [refundOrders, cancelledOrders, totalOrders, recentRefunds] = await Promise.all([
+    const [refundOrders, cancelledOrders, totalOrders, recentRefundsRaw] = await Promise.all([
         prisma.order.findMany({
             where: { refundStatus: { not: 'NONE' } },
             select: { refundStatus: true, refundAmount: true }
@@ -92,9 +97,22 @@ export const getRefundStats = async () => {
             acc[status] = { _id: status, count: 0, totalAmount: 0 };
         }
         acc[status].count += 1;
-        acc[status].totalAmount += Number(order.refundAmount || 0);
+        // Handle Decimal type - convert to number safely
+        const refundAmount = order.refundAmount ? Number(order.refundAmount.toString()) : 0;
+        acc[status].totalAmount += refundAmount;
         return acc;
     }, {});
+
+    const toNum = (d) => (d ? Number(d.toString()) : 0);
+
+    // Convert Decimal fields in recentRefunds to numbers for JSON serialization
+    const recentRefunds = recentRefundsRaw.map(order => ({
+        ...order,
+        subtotal:     toNum(order.subtotal),
+        totalAmount:  toNum(order.totalAmount),
+        discount:     toNum(order.discount),
+        refundAmount: toNum(order.refundAmount),
+    }));
 
     return {
         refundsByStatus: Object.values(refundsByStatus),

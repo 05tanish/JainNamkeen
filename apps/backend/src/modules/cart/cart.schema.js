@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 export const cartItemSchema = z.object({
-    productId: z.string().length(24, 'productId must be a valid 24-char MongoDB ObjectId'),
+    // Prisma uses CUIDs (25 chars), not MongoDB ObjectIds (24 hex chars)
+    productId: z.string().min(1, 'productId is required'),
     quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1').default(1),
 });
 

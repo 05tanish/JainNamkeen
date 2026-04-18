@@ -14,7 +14,7 @@ export default function UserOrders() {
 
     const fetchOrders = () => {
         API.get('/orders').then(res => {
-            setOrders(res.data.orders);
+            setOrders(res.data.orders || []);
             setLoading(false);
         });
     };
@@ -26,7 +26,7 @@ export default function UserOrders() {
     const handleReturnSubmit = async (e) => {
         e.preventDefault();
         try {
-            await API.put(`/orders/${returnModal._id}/request-return`, { refundReason });
+            await API.put(`/orders/${returnModal.id}/request-return`, { refundReason });
             setReturnModal(null);
             setRefundReason('');
             fetchOrders(); // Refresh orders to show updated status
@@ -54,7 +54,7 @@ export default function UserOrders() {
             {returnModal && (
                 <div className="modal-overlay" onClick={() => setReturnModal(null)}>
                     <div className="card" style={{ width: '90%', maxWidth: 450 }} onClick={e => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: 16 }}>Return Order #{returnModal._id.slice(-6).toUpperCase()}</h3>
+                        <h3 style={{ marginBottom: 16 }}>Return Order #{returnModal.id?.slice(-6).toUpperCase()}</h3>
                         <p style={{ marginBottom: 16, color: 'var(--text-secondary)' }}>
                             Please tell us why you want to return this order. Our team will review your request.
                         </p>
@@ -88,14 +88,14 @@ export default function UserOrders() {
                 </div>
             ) : (
                 orders.map(order => (
-                    <div key={order._id} className="card" style={{ marginBottom: 16, padding: 24 }}>
+                    <div key={order.id} className="card" style={{ marginBottom: 16, padding: 24 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                             <div>
-                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Order #{order._id.slice(-8).toUpperCase()}</p>
+                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Order #{order.id?.slice(-8).toUpperCase()}</p>
                                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <span className={`badge badge-${order.status}`}>{order.status}</span>
+                                <span className={`badge badge-${order.status?.toLowerCase()}`}>{order.status?.toLowerCase()}</span>
                                 <span style={{ fontWeight: 700, color: 'var(--primary-light)' }}>₹{order.totalAmount}</span>
                             </div>
                         </div>
@@ -107,19 +107,19 @@ export default function UserOrders() {
                             ))}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16, flexWrap: 'wrap', gap: 12 }}>
-                            {order.shippingAddress && (
+                            {(order.shippingCity || order.shippingStreet) && (
                                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                                    📍 {order.shippingAddress.street}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.pincode}
+                                    📍 {order.shippingStreet}, {order.shippingCity}, {order.shippingState} - {order.shippingPincode}
                                 </p>
                             )}
 
                             {/* Return Logic */}
                             <div>
-                                {order.refundStatus && order.refundStatus !== 'none' ? (
-                                    <span className={`badge badge-${order.refundStatus === 'completed' ? 'delivered' : 'pending'}`}>
-                                        Return {order.refundStatus}
+                                {order.refundStatus && order.refundStatus !== 'NONE' ? (
+                                    <span className={`badge badge-${order.refundStatus === 'COMPLETED' ? 'delivered' : 'pending'}`}>
+                                        Return {order.refundStatus?.toLowerCase()}
                                     </span>
-                                ) : order.status === 'delivered' ? (
+                                ) : order.status === 'DELIVERED' ? (
                                     <button
                                         className="btn btn-sm btn-secondary"
                                         onClick={() => setReturnModal(order)}

@@ -15,8 +15,8 @@ class ProductService {
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
-        if (pageNum < 1) throw new ApiError(400, 'Page must be >= 1');
-        if (limitNum < 1 || limitNum > 100) throw new ApiError(400, 'Limit must be between 1 and 100');
+        if (isNaN(pageNum) || pageNum < 1) throw new ApiError(400, 'Page must be a valid number >= 1');
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) throw new ApiError(400, 'Limit must be between 1 and 100');
 
         const where = { isActive: true };
         
@@ -51,32 +51,55 @@ class ProductService {
             prisma.product.count({ where }),
             prisma.product.findMany({
                 where,
-                include: { category: { select: { name: true } } },
+                include: { category: { select: { id: true, name: true } } },
                 orderBy,
                 skip: (pageNum - 1) * limitNum,
                 take: limitNum
             })
         ]);
 
-        return { products, total, page: pageNum, pages: Math.ceil(total / limitNum) };
+        const parseImages = (imgs) => {
+            let parsed = imgs;
+            while (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch(e) { break; }
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        };
+
+        const mappedProducts = products.map(p => ({
+            ...p,
+            images: parseImages(p.images)
+        }));
+
+        return { products: mappedProducts, total, page: pageNum, pages: Math.ceil(total / limitNum) };
     }
 
     static async getTrending() {
-        return prisma.product.findMany({
+        const products = await prisma.product.findMany({
             where: {
                 isActive: true,
                 totalSold: { gt: 0 }
             },
-            include: { category: { select: { name: true } } },
+            include: { category: { select: { id: true, name: true } } },
             orderBy: { totalSold: 'desc' },
             take: 8
         });
+        return products.map(p => ({
+            ...p,
+            images: (() => {
+            let parsed = p.images;
+            while (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch(e) { break; }
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        })()
+        }));
     }
 
     static async getAutoSuggest(q) {
         if (!q || q.length < 2) return [];
         
-        return prisma.product.findMany({
+        const products = await prisma.product.findMany({
             where: {
                 isActive: true,
                 name: { contains: q, mode: 'insensitive' }
@@ -91,6 +114,16 @@ class ProductService {
             },
             take: 8
         });
+        return products.map(p => ({
+            ...p,
+            images: (() => {
+            let parsed = p.images;
+            while (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch(e) { break; }
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        })()
+        }));
     }
 
     static async getAllTags() {
@@ -105,32 +138,60 @@ class ProductService {
     }
 
     static async getAllProducts() {
-        return prisma.product.findMany({
-            include: { category: { select: { name: true } } },
+        const toNum = (d) => (d ? Number(d.toString()) : 0);
+        const products = await prisma.product.findMany({
+            include: { category: { select: { id: true, name: true } } },
             orderBy: { createdAt: 'desc' }
+        });
+        return products.map(p => {
+            let parsedImages = p.images;
+            while (typeof parsedImages === 'string') {
+                try { parsedImages = JSON.parse(parsedImages); } catch(e) { break; }
+            }
+            if (!Array.isArray(parsedImages)) parsedImages = [];
+            
+            return {
+                ...p,
+                images: parsedImages,
+                price:         toNum(p.price),
+                costPrice:     toNum(p.costPrice),
+                flashSalePrice: p.flashSalePrice ? toNum(p.flashSalePrice) : null,
+            };
         });
     }
 
     static async getProduct(id) {
         const product = await prisma.product.findUnique({
             where: { id },
-            include: { category: { select: { name: true } } }
+            include: { category: { select: { id: true, name: true } } }
         });
 
         if (!product) throw new ApiError(404, 'Product not found');
+        
+        while (typeof product.images === 'string') {
+            try { product.images = JSON.parse(product.images); } catch(e) { break; }
+        }
+        if (!Array.isArray(product.images)) product.images = [];
+            
         return product;
     }
 
     static async createProduct(body) {
         const productData = { ...body };
         
+        // Schema sends 'category' but Prisma model uses 'categoryId'
+        if (productData.category) {
+            productData.categoryId = productData.category;
+            delete productData.category;
+        }
+
         if (typeof productData.tags === 'string') {
             productData.tags = productData.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         }
 
         const product = await prisma.product.create({
             data: productData,
-            include: { category: { select: { name: true } } }
+            include: { category: { select: { id: true, name: true } } }
         });
 
         return product;
@@ -139,6 +200,12 @@ class ProductService {
     static async updateProduct(id, body) {
         const productData = { ...body };
         
+        // Schema sends 'category' but Prisma model uses 'categoryId'
+        if (productData.category) {
+            productData.categoryId = productData.category;
+            delete productData.category;
+        }
+
         if (typeof productData.tags === 'string') {
             productData.tags = productData.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         }
@@ -146,9 +213,10 @@ class ProductService {
         const product = await prisma.product.update({
             where: { id },
             data: productData,
-            include: { category: { select: { name: true } } }
-        }).catch(() => {
-            throw new ApiError(404, 'Product not found');
+            include: { category: { select: { id: true, name: true } } }
+        }).catch((err) => {
+            if (err.code === 'P2025') throw new ApiError(404, 'Product not found');
+            throw err;
         });
 
         return product;
@@ -157,8 +225,9 @@ class ProductService {
     static async deleteProduct(id) {
         await prisma.product.delete({
             where: { id }
-        }).catch(() => {
-            throw new ApiError(404, 'Product not found');
+        }).catch((err) => {
+            if (err.code === 'P2025') throw new ApiError(404, 'Product not found');
+            throw err;
         });
     }
 

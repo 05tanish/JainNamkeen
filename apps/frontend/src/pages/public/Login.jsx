@@ -2,25 +2,46 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
+import { validators } from '../../utils/validation';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPw, setShowPw] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const { login, loading } = useAuth();
     const navigate = useNavigate();
+
+    const validateForm = () => {
+        const errors = {};
+        
+        const emailError = validators.email(email);
+        if (emailError) errors.email = emailError;
+        
+        const passwordError = validators.required(password, 'Password');
+        if (passwordError) errors.password = passwordError;
+        
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setFieldErrors({});
+        
+        if (!validateForm()) {
+            return;
+        }
+        
         try {
             const data = await login(email, password);
             // The global interceptor unwraps the response and returns the user object natively
             const user = data; 
             
-            if (user.role === 'admin') navigate('/admin');
-            else if (user.role === 'staff') navigate('/staff');
+            if (user.role === 'ADMIN') navigate('/admin');
+            else if (user.role === 'STAFF') navigate('/staff');
             else navigate('/');
         } catch (err) {
             setError(err.message);
@@ -81,12 +102,22 @@ export default function Login() {
                                     className="form-control"
                                     type="email"
                                     value={email}
-                                    onChange={e => setEmail(e.target.value)}
+                                    onChange={e => {
+                                        setEmail(e.target.value);
+                                        if (fieldErrors.email) {
+                                            setFieldErrors(prev => ({ ...prev, email: null }));
+                                        }
+                                    }}
                                     placeholder="you@example.com"
                                     required
                                     style={{ paddingLeft: 40 }}
                                 />
                             </div>
+                            {fieldErrors.email && (
+                                <div style={{ color: 'var(--error)', fontSize: '0.85rem', marginTop: '4px' }}>
+                                    {fieldErrors.email}
+                                </div>
+                            )}
                         </div>
 
                         {/* Password */}
@@ -106,7 +137,12 @@ export default function Login() {
                                     className="form-control"
                                     type={showPw ? 'text' : 'password'}
                                     value={password}
-                                    onChange={e => setPassword(e.target.value)}
+                                    onChange={e => {
+                                        setPassword(e.target.value);
+                                        if (fieldErrors.password) {
+                                            setFieldErrors(prev => ({ ...prev, password: null }));
+                                        }
+                                    }}
                                     placeholder="••••••••"
                                     required
                                     style={{ paddingLeft: 40, paddingRight: 44 }}
@@ -124,6 +160,11 @@ export default function Login() {
                                     {showPw ? <FiEyeOff /> : <FiEye />}
                                 </button>
                             </div>
+                            {fieldErrors.password && (
+                                <div style={{ color: 'var(--error)', fontSize: '0.85rem', marginTop: '4px' }}>
+                                    {fieldErrors.password}
+                                </div>
+                            )}
                         </div>
 
                         <button
@@ -150,20 +191,22 @@ export default function Login() {
                     </p>
                 </div>
 
-                {/* Demo credentials */}
-                <div style={{
-                    marginTop: 16, padding: '16px 20px',
-                    background: 'var(--surface-container)',
-                    border: '1px solid rgba(160,65,0,0.15)',
-                    borderRadius: 'var(--radius)',
-                    fontSize: '0.8rem', color: 'var(--text-secondary)',
-                    lineHeight: 1.7,
-                }}>
-                    <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: 4 }}>🔑 Demo Accounts</strong>
-                    Admin: admin@sangamnamkeen.com / admin123<br />
-                    Staff: staff@sangamnamkeen.com / staff123<br />
-                    User: user@test.com / user123
-                </div>
+                {/* Demo credentials - only show in development */}
+                {import.meta.env.MODE === 'development' && (
+                    <div style={{
+                        marginTop: 16, padding: '16px 20px',
+                        background: 'var(--surface-container)',
+                        border: '1px solid rgba(160,65,0,0.15)',
+                        borderRadius: 'var(--radius)',
+                        fontSize: '0.8rem', color: 'var(--text-secondary)',
+                        lineHeight: 1.7,
+                    }}>
+                        <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: 4 }}>🔑 Demo Accounts (Dev Only)</strong>
+                        Admin: admin@demo.com / demo123<br />
+                        Staff: staff@demo.com / demo123<br />
+                        User: user@demo.com / demo123
+                    </div>
+                )}
             </div>
         </div>
     );

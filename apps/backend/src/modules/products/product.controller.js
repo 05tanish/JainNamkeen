@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import * as ProductService from './product.service.js';
+import ProductService from './product.service.js';
 
 export const getProducts = asyncHandler(async (req, res) => {
     const result = await ProductService.getProducts(req.query);

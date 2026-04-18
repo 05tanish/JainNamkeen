@@ -33,8 +33,8 @@ const notificationSchema = new mongoose.Schema({
         default: null
     },
     createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        type: String, // Store as string (Prisma user ID), not ObjectId
+        default: null
     }
 }, { timestamps: true, toJSON: { versionKey: false }, toObject: { versionKey: false } });
 

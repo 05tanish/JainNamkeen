@@ -5,6 +5,7 @@ import { CartProvider } from './context/CartContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
 
 // Public pages
@@ -29,41 +30,43 @@ import Profile from './pages/shared/Profile';
 
 function App() {
   return (
-    <AlertProvider>
-      <Router>
-        <AuthProvider>
-          <CartProvider>
-            <Toaster position="top-right" />
-            <Navbar />
-            <Routes>
-              {/* Public */}
-              <Route path="/" element={<Home />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/offers" element={<Offers />} />
-              <Route path="/pages/:slug" element={<PageView />} />
+    <ErrorBoundary>
+      <AlertProvider>
+        <Router>
+          <AuthProvider>
+            <CartProvider>
+              <Toaster position="top-right" />
+              <Navbar />
+              <Routes>
+                {/* Public */}
+                <Route path="/" element={<Home />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/product/:id" element={<ProductDetail />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/offers" element={<Offers />} />
+                <Route path="/pages/:slug" element={<PageView />} />
 
-              {/* User */}
-              <Route path="/cart" element={<ProtectedRoute roles={['user']}><Cart /></ProtectedRoute>} />
-              <Route path="/checkout" element={<ProtectedRoute roles={['user']}><Checkout /></ProtectedRoute>} />
-              <Route path="/my-orders" element={<ProtectedRoute roles={['user']}><UserOrders /></ProtectedRoute>} />
+                {/* User */}
+                <Route path="/cart" element={<ProtectedRoute roles={['USER']}><Cart /></ProtectedRoute>} />
+                <Route path="/checkout" element={<ProtectedRoute roles={['USER']}><Checkout /></ProtectedRoute>} />
+                <Route path="/my-orders" element={<ProtectedRoute roles={['USER']}><UserOrders /></ProtectedRoute>} />
 
-              {/* Admin */}
-              <Route path="/admin/*" element={<ProtectedRoute roles={['admin']}><AdminPanel /></ProtectedRoute>} />
+                {/* Admin */}
+                <Route path="/admin/*" element={<ProtectedRoute roles={['ADMIN']}><AdminPanel /></ProtectedRoute>} />
 
-              {/* Staff */}
-              <Route path="/staff/*" element={<ProtectedRoute roles={['staff']}><StaffPanel /></ProtectedRoute>} />
-              {/* Shared Profile */}
-              <Route path="/profile" element={<ProtectedRoute roles={['user', 'admin', 'staff']}><Profile /></ProtectedRoute>} />
-            </Routes>
-            <Footer />
-          </CartProvider>
-        </AuthProvider>
-      </Router>
-    </AlertProvider>
+                {/* Staff */}
+                <Route path="/staff/*" element={<ProtectedRoute roles={['STAFF']}><StaffPanel /></ProtectedRoute>} />
+                {/* Shared Profile */}
+                <Route path="/profile" element={<ProtectedRoute roles={['USER', 'ADMIN', 'STAFF']}><Profile /></ProtectedRoute>} />
+              </Routes>
+              <Footer />
+            </CartProvider>
+          </AuthProvider>
+        </Router>
+      </AlertProvider>
+    </ErrorBoundary>
   );
 }
 

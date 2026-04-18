@@ -39,7 +39,7 @@ function CartProvider({ children }) {
 
     // Fetch cart when user logs in
     useEffect(() => {
-        if (user && user.role === 'user') {
+        if (user && user.role?.toUpperCase() === 'USER') {
             fetchCart();
         } else {
             dispatch({ type: 'CLEAR' });

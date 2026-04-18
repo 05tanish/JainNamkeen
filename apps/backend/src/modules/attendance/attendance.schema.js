@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const markAttendanceSchema = z.object({
-    userId: z.string().min(24).max(24),
+    userId: z.string().min(1), // Prisma CUIDs are 25 chars — not MongoDB ObjectIds (24 hex chars)
     date: z.preprocess((arg) => {
         if (typeof arg == "string" || arg instanceof Date) return new Date(arg);
     }, z.date()),

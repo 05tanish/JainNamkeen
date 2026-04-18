@@ -1,14 +1,13 @@
 import mongoose from 'mongoose';
 
 const reviewSchema = new mongoose.Schema({
+    // Prisma uses CUIDs (strings), not MongoDB ObjectIds
     product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product',
+        type: String,
         required: true
     },
     user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        type: String,
         required: true
     },
     rating: {

@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 const attendanceSchema = new mongoose.Schema({
     user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        type: String, // Prisma CUID — users live in PostgreSQL, not MongoDB
         required: true
     },
     date: {
@@ -16,8 +15,7 @@ const attendanceSchema = new mongoose.Schema({
         default: 'present'
     },
     markedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        type: String, // Prisma CUID — same reason as above
         required: true
     },
     note: {

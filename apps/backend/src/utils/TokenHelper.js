@@ -18,17 +18,24 @@ export const extractToken = (req) => {
 
 export const sendTokenResponse = (res, user, token, statusCode = 200, message = 'Success') => {
     res.cookie('token', token, getCookieOptions());
+    
+    // Normalize user object to handle both Prisma (id) and MongoDB (_id)
+    const userData = {
+        id: user.id || user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone || null,
+        street: user.street || null,
+        city: user.city || null,
+        state: user.state || null,
+        pincode: user.pincode || null,
+        isActive: user.isActive
+    };
+    
     return successResponse(res, {
         statusCode,
         message,
-        data: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            phone: user.phone ?? '',
-            address: user.address ?? {},
-            isActive: user.isActive,
-        }
+        data: userData
     });
 };

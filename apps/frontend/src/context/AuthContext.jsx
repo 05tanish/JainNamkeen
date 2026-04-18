@@ -1,10 +1,12 @@
 import { createContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import API from '../api/axios';
+import { logger } from '../utils/logger';
 
 const AuthContext = createContext();
 
+// NO localStorage - auth state comes ONLY from server via httpOnly cookies
 const initialState = {
-    user: JSON.parse(localStorage.getItem('user')) || null,
+    user: null,
     loading: false,
     error: null,
 };
@@ -14,7 +16,6 @@ function authReducer(state, action) {
         case 'AUTH_START':
             return { ...state, loading: true, error: null };
         case 'AUTH_SUCCESS':
-            // The global axios interceptor already unwrapped the user object
             return { ...state, loading: false, user: action.payload, error: null };
         case 'AUTH_ERROR':
             return { ...state, loading: false, error: action.payload };
@@ -31,43 +32,26 @@ function authReducer(state, action) {
 
 function AuthProvider({ children }) {
     const [state, dispatch] = useReducer(authReducer, initialState);
-    // isInitialized: true once we have verified the session with the server.
-    // ProtectedRoute waits for this before deciding to redirect.
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // On mount: verify that the httpOnly cookie is still valid by calling /auth/me.
-    // This catches the case where localStorage has stale user data but the
-    // server-side cookie has expired or been cleared.
+    // On mount: verify session with server using httpOnly cookie
+    // This is the ONLY source of truth for auth state
     useEffect(() => {
         const verifySession = async () => {
             try {
                 const { data } = await API.get('/auth/me');
-                // Cookie is valid — sync user state with fresh server data (unwrapped by interceptor)
+                // Cookie is valid - set user from server response
                 dispatch({ type: 'SET_USER', payload: data });
-                localStorage.setItem('user', JSON.stringify(data));
             } catch {
-                // Cookie is expired or invalid — clear stale user from localStorage
+                // Cookie is expired or invalid - user is not authenticated
                 dispatch({ type: 'LOGOUT' });
-                localStorage.removeItem('user');
             } finally {
-                // Either way, we now know the true auth state
                 setIsInitialized(true);
             }
         };
 
         verifySession();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    // Keep localStorage in sync whenever user changes (after initial load)
-    useEffect(() => {
-        if (!isInitialized) return; // skip during initialization (handled above)
-        if (state.user) {
-            localStorage.setItem('user', JSON.stringify(state.user));
-        } else {
-            localStorage.removeItem('user');
-        }
-    }, [state.user, isInitialized]);
 
     const login = useCallback(async (email, password) => {
         dispatch({ type: 'AUTH_START' });
@@ -99,10 +83,9 @@ function AuthProvider({ children }) {
         try {
             await API.post('/auth/logout');
         } catch (err) {
-            console.error('Logout failed:', err);
+            logger.error('Logout failed', err);
         }
         dispatch({ type: 'LOGOUT' });
-        localStorage.removeItem('user');
     }, []);
 
     const updateUser = useCallback((userData) => {
