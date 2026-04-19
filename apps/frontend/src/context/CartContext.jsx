@@ -46,27 +46,28 @@ function CartProvider({ children }) {
         }
     }, [user, fetchCart]);
 
-    const addToCart = useCallback(async (productId, quantity = 1) => {
+    const addToCart = useCallback(async (productId, variantId = null, quantity = 1) => {
         try {
-            const { data } = await API.post('/cart', { productId, quantity });
+            const { data } = await API.post('/cart', { productId, variantId, quantity });
             dispatch({ type: 'SET_CART', payload: data.items || [] });
         } catch (error) {
             console.error('Add to cart failed:', error);
         }
     }, []);
 
-    const updateQuantity = useCallback(async (productId, quantity) => {
+    const updateQuantity = useCallback(async (productId, variantId, quantity) => {
         try {
-            const { data } = await API.put(`/cart/${productId}`, { quantity });
+            const { data } = await API.put(`/cart/${productId}`, { variantId, quantity });
             dispatch({ type: 'SET_CART', payload: data.items || [] });
         } catch (error) {
             console.error('Update cart failed:', error);
         }
     }, []);
 
-    const removeFromCart = useCallback(async (productId) => {
+    const removeFromCart = useCallback(async (productId, variantId) => {
         try {
-            const { data } = await API.delete(`/cart/${productId}`);
+            const params = variantId ? { variantId } : {};
+            const { data } = await API.delete(`/cart/${productId}`, { params });
             dispatch({ type: 'SET_CART', payload: data.items || [] });
         } catch (error) {
             console.error('Remove from cart failed:', error);
@@ -84,7 +85,7 @@ function CartProvider({ children }) {
 
     const cartCount = useMemo(() => state.items.reduce((sum, item) => sum + item.quantity, 0), [state.items]);
     const cartTotal = useMemo(() => state.items.reduce((sum, item) => {
-        const price = item.product?.price || 0;
+        const price = Number(item.variant?.price ?? item.product?.price ?? 0);
         return sum + price * item.quantity;
     }, 0), [state.items]);
 

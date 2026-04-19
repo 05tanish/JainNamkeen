@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API from '../../api/axios';
 import { useCart } from '../../hooks/useCart';
@@ -6,9 +6,6 @@ import { useAlert } from '../../components/AlertManager';
 import { initiatePayment } from '../../utils/razorpay';
 import { logger } from '../../utils/logger';
 import './Checkout.css';
-
-// Lazy load Calendar component
-const Calendar = lazy(() => import('@heroui/react').then(module => ({ default: module.Calendar })));
 
 export default function Checkout() {
     const navigate = useNavigate();
@@ -115,6 +112,7 @@ export default function Checkout() {
                 // Only send product IDs and quantities - backend will calculate prices
                 items: items.map(item => ({
                     product: item.product?.id,
+                    variantId: item.variant?.id ?? null,
                     quantity: item.quantity
                 })),
                 // Send total for verification only - backend recalculates
@@ -262,17 +260,15 @@ export default function Checkout() {
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
                             Select your preferred delivery date (3-30 days from today)
                         </p>
-                        <Suspense fallback={<div style={{ textAlign: 'center', padding: 40 }}>Loading calendar...</div>}>
-                            <Calendar
-                                value={deliveryDate}
-                                onChange={setDeliveryDate}
-                                minDate={minDate}
-                                maxDate={maxDate}
-                                color="primary"
-                                showMonthAndYearPickers
-                                style={{ maxWidth: 400 }}
-                            />
-                        </Suspense>
+                        <input
+                            type="date"
+                            className="form-control"
+                            style={{ maxWidth: 300 }}
+                            value={deliveryDate.toISOString().split('T')[0]}
+                            min={minDate.toISOString().split('T')[0]}
+                            max={maxDate.toISOString().split('T')[0]}
+                            onChange={e => setDeliveryDate(new Date(e.target.value + 'T00:00:00'))}
+                        />
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 12 }}>
                             Selected: {deliveryDate.toLocaleDateString('en-IN', { 
                                 weekday: 'long', 

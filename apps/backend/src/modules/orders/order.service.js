@@ -7,8 +7,8 @@ const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVE
 // Safe money rounding to 2 decimal places — avoids JS floating-point drift
 const roundMoney = (amount) => Math.round(amount * 100) / 100;
 
-class OrderService {
-    static async createOrder(userId, { items, totalAmount, shippingAddress, paymentMethod, couponCode }) {
+
+export const createOrder = async (userId, { items, totalAmount, shippingAddress, paymentMethod, couponCode }) => {
         if (!items || items.length === 0) throw new ApiError(400, 'No items in order');
 
         const addr = shippingAddress;
@@ -26,25 +26,53 @@ class OrderService {
             for (const item of items) {
                 // FIX: table name is 'products' (@@map), IDs are CUIDs (not UUIDs)
                 const rows = await tx.$queryRaw`
-                    SELECT id, name, price, stock, "isActive" FROM products WHERE id = ${item.product} FOR UPDATE
+                    SELECT id, name, price, stock, "isActive", images FROM products WHERE id = ${item.product} FOR UPDATE
                 `;
                 const product = rows[0];
 
                 if (!product) throw new ApiError(404, `Product ${item.product} not found`);
                 if (!product.isActive) throw new ApiError(400, `Product "${product.name}" is not available`);
-                if (item.quantity > product.stock) {
-                    throw new ApiError(400, `Insufficient stock for "${product.name}". Available: ${product.stock}`);
-                }
 
-                // Accumulate in paise to avoid float drift
-                subtotalPaise += Math.round(Number(product.price) * 100) * item.quantity;
-                orderItems.push({
-                    productId: product.id,
-                    name: product.name,
-                    price: product.price,
-                    quantity: item.quantity,
-                    image: getFirstImage(product.images)
-                });
+                if (item.variantId) {
+                    // Variant-aware path: lock the weight_variants row
+                    const variantRows = await tx.$queryRaw`
+                        SELECT id, "weightLabel", price, stock FROM weight_variants WHERE id = ${item.variantId} FOR UPDATE
+                    `;
+                    const variant = variantRows[0];
+                    if (!variant) throw new ApiError(404, `Variant ${item.variantId} not found`);
+                    if (item.quantity > variant.stock) {
+                        throw new ApiError(400, `Insufficient stock for variant "${variant.weightLabel}". Available: ${variant.stock}`);
+                    }
+
+                    // Use variant price for subtotal
+                    subtotalPaise += Math.round(Number(variant.price) * 100) * item.quantity;
+                    const imgVariant = getFirstImage(product.images);
+                    orderItems.push({
+                        productId: product.id,
+                        name: product.name,
+                        price: variant.price,
+                        quantity: item.quantity,
+                        image: imgVariant?.url ?? imgVariant ?? null,
+                        weightLabel: variant.weightLabel,
+                        variantId: item.variantId
+                    });
+                } else {
+                    // Legacy path: use product stock and price
+                    if (item.quantity > product.stock) {
+                        throw new ApiError(400, `Insufficient stock for "${product.name}". Available: ${product.stock}`);
+                    }
+
+                    // Accumulate in paise to avoid float drift
+                    subtotalPaise += Math.round(Number(product.price) * 100) * item.quantity;
+                    const imgLegacy = getFirstImage(product.images);
+                    orderItems.push({
+                        productId: product.id,
+                        name: product.name,
+                        price: product.price,
+                        quantity: item.quantity,
+                        image: imgLegacy?.url ?? imgLegacy ?? null,
+                    });
+                }
             }
 
             // Convert back to rupees with safe rounding
@@ -129,19 +157,35 @@ class OrderService {
                 }
             });
 
-            // Update product stock atomically in same transaction
+            // Update stock atomically in same transaction
             await Promise.all(
-                items.map(item =>
-                    tx.product.update({
-                        where: { id: item.product },
-                        data: {
-                            stock: { decrement: item.quantity },
-                            totalSold: { increment: item.quantity }
-                        }
-                    })
-                )
+                items.map(item => {
+                    if (item.variantId) {
+                        // Variant path: decrement variant stock, increment product totalSold
+                        return Promise.all([
+                            tx.$executeRaw`
+                                UPDATE weight_variants SET stock = stock - ${item.quantity} WHERE id = ${item.variantId}
+                            `,
+                            tx.product.update({
+                                where: { id: item.product },
+                                data: { totalSold: { increment: item.quantity } }
+                            })
+                        ]);
+                    } else {
+                        // Legacy path: decrement product stock and increment totalSold
+                        return tx.product.update({
+                            where: { id: item.product },
+                            data: {
+                                stock: { decrement: item.quantity },
+                                totalSold: { increment: item.quantity }
+                            }
+                        });
+                    }
+                })
             );
 
+            // TODO: [BULLMQ] Queue order processing/notification job
+            // e.g., await orderQueue.add('process-new-order', { orderId: order.id, userId });
             return order;
         }, {
             maxWait: 5000, // Maximum time to wait for transaction to start
@@ -150,9 +194,9 @@ class OrderService {
         });
     }
 
-    static async getOrders(user, filters) {
+export const getOrders = async (user, filters) => {
         const where = {};
-        
+
         if (user.role?.toUpperCase() === 'USER') {
             where.userId = user.id;
         } else {
@@ -176,14 +220,14 @@ class OrderService {
         });
         return orders.map(o => ({
             ...o,
-            subtotal:     toNum(o.subtotal),
-            totalAmount:  toNum(o.totalAmount),
-            discount:     toNum(o.discount),
+            subtotal: toNum(o.subtotal),
+            totalAmount: toNum(o.totalAmount),
+            discount: toNum(o.discount),
             refundAmount: toNum(o.refundAmount),
         }));
     }
 
-    static async getOrder(orderId, user) {
+export const getOrder = async (orderId, user) => {
         const order = await prisma.order.findUnique({
             where: { id: orderId },
             include: {
@@ -193,7 +237,7 @@ class OrderService {
         });
 
         if (!order) throw new ApiError(404, 'Order not found');
-        
+
         if (user.role?.toUpperCase() === 'USER' && order.userId !== user.id) {
             throw new ApiError(403, 'Not authorized to view this order');
         }
@@ -201,7 +245,7 @@ class OrderService {
         return order;
     }
 
-    static async updateOrderStatus(orderId, status, changedBy) {
+export const updateOrderStatus = async (orderId, status, changedBy) => {
         const statusUpper = status.toUpperCase();
         if (!VALID_STATUSES.includes(statusUpper)) {
             throw new ApiError(400, `Invalid status. Must be: ${VALID_STATUSES.join(', ')}`);
@@ -231,7 +275,7 @@ class OrderService {
         });
     }
 
-    static async getOrderStats() {
+export const getOrderStats = async () => {
         const [
             totalOrders,
             pendingOrders,
@@ -303,13 +347,13 @@ class OrderService {
         };
     }
 
-    static async processRefund(orderId, { refundStatus, refundReason, refundAmount }, adminId) {
+export const processRefund = async (orderId, { refundStatus, refundReason, refundAmount }, adminId) => {
         const order = await prisma.order.findUnique({
             where: { id: orderId }
         });
 
         if (!order) throw new ApiError(404, 'Order not found');
-        
+
         if (refundAmount && refundAmount > Number(order.totalAmount)) {
             throw new ApiError(400, 'Refund amount cannot exceed order total');
         }
@@ -344,7 +388,7 @@ class OrderService {
         return updatedOrder;
     }
 
-    static async updateTracking(orderId, { trackingNumber, trackingUrl, carrier }) {
+export const updateTracking = async (orderId, { trackingNumber, trackingUrl, carrier }) => {
         const updateData = {};
         if (trackingNumber) updateData.trackingNumber = trackingNumber;
         if (trackingUrl) updateData.trackingUrl = trackingUrl;
@@ -358,13 +402,13 @@ class OrderService {
         });
     }
 
-    static async requestReturn(orderId, refundReason, user) {
+export const requestReturn = async (orderId, refundReason, user) => {
         const order = await prisma.order.findUnique({
             where: { id: orderId }
         });
 
         if (!order) throw new ApiError(404, 'Order not found');
-        
+
         if (user.role?.toUpperCase() === 'USER' && order.userId !== user.id) {
             throw new ApiError(403, 'Not authorized');
         }
@@ -384,7 +428,4 @@ class OrderService {
                 refundReason: refundReason || null
             }
         });
-    }
-}
-
-export default OrderService;
+};

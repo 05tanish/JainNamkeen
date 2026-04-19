@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import AttendanceService from './attendance.service.js';
+import * as AttendanceService from './attendance.service.js';
 
 export const markAttendance = asyncHandler(async (req, res) => {
     const record = await AttendanceService.markAttendance(req.body, req.user.id);

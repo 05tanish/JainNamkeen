@@ -1,10 +1,10 @@
 import { ApiError } from '../utils/ApiError.js';
 
 export const validate = (schema, source = 'body') => (req, res, next) => {
-    const result = schema.safeParse(req[source]);
+    const result = schema.safeParse(req[source] ?? {});
 
     if (!result.success) {
-        const errors = result.error.errors.map(err => ({
+        const errors = (result.error?.errors ?? []).map(err => ({
             path: err.path.join('.') || source,
             message: err.message,
         }));

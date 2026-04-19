@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import NotificationService from './notification.service.js';
+import * as NotificationService from './notification.service.js';
 
 export const createNotification = asyncHandler(async (req, res) => {
     const notification = await NotificationService.createNotification(req.body, req.user.id);

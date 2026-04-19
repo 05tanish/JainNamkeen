@@ -13,12 +13,13 @@ export const addToCart = asyncHandler(async (req, res) => {
 });
 
 export const updateCartItem = asyncHandler(async (req, res) => {
-    const cart = await CartService.updateCartItem(req.user.id, req.params.productId, req.body.quantity);
+    const cart = await CartService.updateCartItem(req.user.id, req.params.productId, req.body.variantId ?? null, req.body.quantity);
     successResponse(res, { statusCode: 200, data: cart, message: 'Cart updated' });
 });
 
 export const removeFromCart = asyncHandler(async (req, res) => {
-    const cart = await CartService.removeFromCart(req.user.id, req.params.productId);
+    const variantId = req.query.variantId ?? null;
+    const cart = await CartService.removeFromCart(req.user.id, req.params.productId, variantId);
     successResponse(res, { statusCode: 200, data: cart, message: 'Item removed from cart' });
 });
 

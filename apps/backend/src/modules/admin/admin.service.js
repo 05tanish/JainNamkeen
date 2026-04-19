@@ -108,9 +108,9 @@ export const getRefundStats = async () => {
     // Convert Decimal fields in recentRefunds to numbers for JSON serialization
     const recentRefunds = recentRefundsRaw.map(order => ({
         ...order,
-        subtotal:     toNum(order.subtotal),
-        totalAmount:  toNum(order.totalAmount),
-        discount:     toNum(order.discount),
+        subtotal: toNum(order.subtotal),
+        totalAmount: toNum(order.totalAmount),
+        discount: toNum(order.discount),
         refundAmount: toNum(order.refundAmount),
     }));
 
@@ -122,3 +122,4 @@ export const getRefundStats = async () => {
         recentRefunds
     };
 };
+

@@ -1,5 +1,5 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
-import PaymentService from './payment.service.js';
+import * as PaymentService from './payment.service.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 
 export const createPaymentOrder = asyncHandler(async (req, res) => {

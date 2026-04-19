@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import ProductService from './product.service.js';
+import * as ProductService from './product.service.js';
 
 export const getProducts = asyncHandler(async (req, res) => {
     const result = await ProductService.getProducts(req.query);
@@ -60,4 +60,34 @@ export const uploadImages = asyncHandler(async (req, res) => {
 export const removeImage = asyncHandler(async (req, res) => {
     await ProductService.removeImage(req.body.public_id);
     successResponse(res, { statusCode: 200, data: null, message: 'Image removed' });
+});
+
+export const getVariants = asyncHandler(async (req, res) => {
+    const variants = await ProductService.getVariants(req.params.id);
+    successResponse(res, { statusCode: 200, data: variants, message: 'Variants fetched' });
+});
+
+export const createVariant = asyncHandler(async (req, res) => {
+    const variant = await ProductService.createVariant(req.params.id, req.body);
+    successResponse(res, { statusCode: 201, data: variant, message: 'Variant created' });
+});
+
+export const updateVariant = asyncHandler(async (req, res) => {
+    const variant = await ProductService.updateVariant(req.params.id, req.params.variantId, req.body);
+    successResponse(res, { statusCode: 200, data: variant, message: 'Variant updated' });
+});
+
+export const deleteVariant = asyncHandler(async (req, res) => {
+    await ProductService.deleteVariant(req.params.id, req.params.variantId);
+    successResponse(res, { statusCode: 200, data: null, message: 'Variant deleted' });
+});
+
+export const setDefaultVariant = asyncHandler(async (req, res) => {
+    const variant = await ProductService.setDefaultVariant(req.params.id, req.params.variantId);
+    successResponse(res, { statusCode: 200, data: variant, message: 'Default variant updated' });
+});
+
+export const migrateProduct = asyncHandler(async (req, res) => {
+    const variant = await ProductService.migrateToVariants(req.params.id);
+    successResponse(res, { statusCode: 201, data: variant, message: 'Product migrated to variants' });
 });

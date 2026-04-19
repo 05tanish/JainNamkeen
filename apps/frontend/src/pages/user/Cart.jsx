@@ -9,9 +9,9 @@ export default function Cart() {
     const { showAlert } = useAlert();
 
     // Handle quantity update with alert feedback
-    const handleUpdateQuantity = async (productId, newQuantity) => {
+    const handleUpdateQuantity = async (productId, variantId, newQuantity) => {
         try {
-            await updateQuantity(productId, newQuantity);
+            await updateQuantity(productId, variantId, newQuantity);
             showAlert('Cart updated successfully', 'success');
         } catch (error) {
             showAlert('Failed to update cart. Please try again.', 'error');
@@ -19,9 +19,9 @@ export default function Cart() {
     };
 
     // Handle remove from cart with alert feedback
-    const handleRemoveFromCart = async (productId) => {
+    const handleRemoveFromCart = async (productId, variantId) => {
         try {
-            await removeFromCart(productId);
+            await removeFromCart(productId, variantId);
             showAlert('Item removed from cart', 'info');
         } catch (error) {
             showAlert('Failed to remove item. Please try again.', 'error');
@@ -69,14 +69,18 @@ export default function Cart() {
 
                             <div className="cart-item-info">
                                 <h4 style={{ marginBottom: 4 }}>{item.product?.name || 'Product'}</h4>
-                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{item.product?.weight}</p>
-                                <p style={{ fontWeight: 700, color: 'var(--primary-light)' }}>₹{item.product?.price || 0}</p>
+                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                    {item.variant?.weightLabel || item.product?.weight}
+                                </p>
+                                <p style={{ fontWeight: 700, color: 'var(--primary-light)' }}>
+                                    ₹{Number(item.variant?.price ?? item.product?.price ?? 0)}
+                                </p>
                             </div>
 
                             <div className="cart-item-quantity">
                                 <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => handleUpdateQuantity(item.product?.id, item.quantity - 1)}
+                                    onClick={() => handleUpdateQuantity(item.product?.id, item.variant?.id ?? null, item.quantity - 1)}
                                     style={{ borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}
                                 >−</button>
                                 <span style={{
@@ -85,15 +89,17 @@ export default function Cart() {
                                 }}>{item.quantity}</span>
                                 <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => handleUpdateQuantity(item.product?.id, item.quantity + 1)}
+                                    onClick={() => handleUpdateQuantity(item.product?.id, item.variant?.id ?? null, item.quantity + 1)}
                                     style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}
                                 >+</button>
                             </div>
 
                             <div className="cart-item-total">
-                                <p style={{ fontWeight: 700, marginBottom: 4 }}>₹{(item.product?.price || 0) * item.quantity}</p>
+                                <p style={{ fontWeight: 700, marginBottom: 4 }}>
+                                    ₹{Number(item.variant?.price ?? item.product?.price ?? 0) * item.quantity}
+                                </p>
                                 <button
-                                    onClick={() => handleRemoveFromCart(item.product?.id)}
+                                    onClick={() => handleRemoveFromCart(item.product?.id, item.variant?.id ?? null)}
                                     style={{ background: 'none', color: 'var(--danger)', fontSize: '1rem' }}
                                 ><FiTrash2 /></button>
                             </div>

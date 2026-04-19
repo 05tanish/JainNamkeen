@@ -42,7 +42,7 @@ export default function ProductDetail() {
     const [quantity, setQuantity] = useState(1);
     const [added, setAdded] = useState(false);
     const [mainImage, setMainImage] = useState('');
-    const [selectedWeight, setSelectedWeight] = useState('250g');
+    const [selectedVariant, setSelectedVariant] = useState(null);
 
     // Reviews State
     const [reviews, setReviews] = useState([]);
@@ -69,6 +69,9 @@ export default function ProductDetail() {
             const firstImage = (res.data.images && res.data.images.length > 0) ? res.data.images[0].url : res.data.image;
             setMainImage(firstImage);
 
+            const defaultVariant = res.data.variants?.find(v => v.isDefault) ?? res.data.variants?.[0] ?? null;
+            setSelectedVariant(defaultVariant);
+
             // Save to recently viewed
             try {
                 const stored = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
@@ -94,7 +97,7 @@ export default function ProductDetail() {
             return;
         }
         for (let i = 0; i < quantity; i++) {
-            await addToCart(product.id);
+            await addToCart(product.id, selectedVariant?.id ?? null);
         }
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
@@ -138,8 +141,6 @@ export default function ProductDetail() {
             alert('Error deleting review');
         }
     };
-
-    const weightOptions = ['250g', '500g', '1kg'];
 
     // All useMemo hooks must be called unconditionally — before any early returns
     const descriptionTabContent = useMemo(() => (
@@ -502,7 +503,7 @@ export default function ProductDetail() {
 
                         {/* Price */}
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
-                            <span className="product-price">₹{product.price}</span>
+                            <span className="product-price">₹{selectedVariant?.price ?? product.price}</span>
                             {product.originalPrice && product.originalPrice > product.price && (
                                 <>
                                     <span className="product-price-original">₹{product.originalPrice}</span>
@@ -524,29 +525,42 @@ export default function ProductDetail() {
                                 Select Weight
                             </label>
                             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                {weightOptions.map(weight => (
-                                    <button
-                                        key={weight}
-                                        onClick={() => setSelectedWeight(weight)}
-                                        style={{
-                                            padding: '12px 24px',
-                                            borderRadius: 'var(--radius-lg)',
-                                            border: selectedWeight === weight ? '2px solid var(--primary)' : '2px solid var(--border)',
-                                            background: selectedWeight === weight ? 'var(--primary)' : 'transparent',
-                                            color: selectedWeight === weight ? '#fff' : 'var(--text-primary)',
-                                            fontWeight: 700,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {weight}
-                                    </button>
-                                ))}
+                                {(product.variants && product.variants.length > 0
+                                    ? product.variants
+                                    : ['250g', '500g', '1kg'].map(w => ({ id: null, weightLabel: w, price: product.price, stock: product.stock }))
+                                ).map(v => {
+                                    const isSelected = v.id
+                                        ? selectedVariant?.id === v.id
+                                        : selectedVariant?.weightLabel === v.weightLabel;
+                                    const outOfStock = v.stock === 0;
+                                    return (
+                                        <button
+                                            key={v.id ?? v.weightLabel}
+                                            onClick={() => !outOfStock && setSelectedVariant(v)}
+                                            disabled={outOfStock}
+                                            style={{
+                                                padding: '12px 24px',
+                                                borderRadius: 'var(--radius-lg)',
+                                                border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border)',
+                                                background: isSelected ? 'var(--primary)' : 'transparent',
+                                                color: isSelected ? '#fff' : outOfStock ? 'var(--text-muted)' : 'var(--text-primary)',
+                                                fontWeight: 700,
+                                                cursor: outOfStock ? 'not-allowed' : 'pointer',
+                                                opacity: outOfStock ? 0.5 : 1,
+                                                transition: 'all 0.2s',
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            {v.weightLabel}
+                                            {outOfStock && <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 400 }}>Out of Stock</span>}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
                         {/* Add to Cart */}
-                        {product.stock > 0 && (
+                        {(selectedVariant ? selectedVariant.stock > 0 : product.stock > 0) && (
                             <div className="product-actions">
                                 <button
                                     className="btn btn-primary"

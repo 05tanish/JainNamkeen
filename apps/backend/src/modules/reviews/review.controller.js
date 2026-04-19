@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import ReviewService from './review.service.js';
+import * as ReviewService from './review.service.js';
 
 export const getProductReviews = asyncHandler(async (req, res) => {
     const result = await ReviewService.getProductReviews(req.params.id);

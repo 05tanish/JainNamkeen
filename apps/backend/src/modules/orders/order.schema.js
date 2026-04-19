@@ -8,6 +8,7 @@ export const createOrderSchema = z.object({
                 product: z
                     .string()
                     .min(1, 'Product ID is required'),
+                variantId: z.string().nullable().optional(),
                 name: z.string().optional(),
                 price: z.coerce.number().min(0).optional(),
                 quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1'),
@@ -29,7 +30,7 @@ export const createOrderSchema = z.object({
             .regex(/^\d{10}$/, 'Phone must be exactly 10 digits'),
     }),
     paymentMethod: z.enum(['cod', 'online']).default('cod'),
-    couponCode: z.string().trim().transform(v => v.toUpperCase()).optional(),
+    couponCode: z.string().trim().transform(v => v.toUpperCase()).nullable().optional(),
 });
 
 export const updateOrderStatusSchema = z.object({

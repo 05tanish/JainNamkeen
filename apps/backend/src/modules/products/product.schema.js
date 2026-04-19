@@ -38,3 +38,11 @@ export const productSchema = z.object({
 
 // For update requests all fields are optional
 export const updateProductSchema = productSchema.partial();
+
+export const variantSchema = z.object({
+    weightLabel: z.string().min(1).trim(),
+    price: z.coerce.number().min(0),
+    costPrice: z.coerce.number().min(0).default(0),
+    stock: z.coerce.number().int().min(0).default(0),
+    isDefault: z.boolean().optional().default(false),
+});

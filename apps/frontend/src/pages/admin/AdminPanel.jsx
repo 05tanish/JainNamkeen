@@ -182,6 +182,144 @@ function Dashboard() {
     );
 }
 
+// ─── Variant Manager ───
+function VariantManager({ productId, lowStockThreshold = 10 }) {
+    const [variants, setVariants] = useState([]);
+    const [editingId, setEditingId] = useState(null);
+    const [form, setForm] = useState({ weightLabel: '', price: '', costPrice: '', stock: '', isDefault: false });
+
+    const loadVariants = useCallback(() => {
+        API.get(`/products/${productId}/variants`).then(res => setVariants(res.data));
+    }, [productId]);
+
+    useEffect(() => { loadVariants(); }, [loadVariants]);
+
+    const resetForm = () => {
+        setForm({ weightLabel: '', price: '', costPrice: '', stock: '', isDefault: false });
+        setEditingId(null);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            if (editingId) {
+                await API.put(`/products/${productId}/variants/${editingId}`, form);
+            } else {
+                await API.post(`/products/${productId}/variants`, form);
+            }
+            resetForm();
+            loadVariants();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error saving variant');
+        }
+    };
+
+    const handleDelete = async (variantId) => {
+        if (!confirm('Delete this variant?')) return;
+        try {
+            await API.delete(`/products/${productId}/variants/${variantId}`);
+            loadVariants();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Cannot delete variant');
+        }
+    };
+
+    const handleSetDefault = async (variantId) => {
+        try {
+            await API.put(`/products/${productId}/variants/${variantId}/set-default`);
+            loadVariants();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error setting default');
+        }
+    };
+
+    const handleEdit = (v) => {
+        setForm({ weightLabel: v.weightLabel, price: v.price, costPrice: v.costPrice, stock: v.stock, isDefault: v.isDefault });
+        setEditingId(v.id);
+    };
+
+    return (
+        <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+            <h4 style={{ marginBottom: 16, fontFamily: 'var(--font-heading)' }}>Weight Variants</h4>
+
+            {/* Variants Table */}
+            {variants.length > 0 && (
+                <div className="table-container" style={{ marginBottom: 16 }}>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Weight Label</th>
+                                <th>Sale Price</th>
+                                <th>Cost Price</th>
+                                <th>Stock</th>
+                                <th>Default</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {variants.map(v => (
+                                <tr key={v.id}>
+                                    <td>
+                                        {v.weightLabel}
+                                        {v.stock < lowStockThreshold && (
+                                            <span style={{ marginLeft: 8, background: '#f59e0b', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                                                Low Stock
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td>₹{v.price}</td>
+                                    <td>₹{v.costPrice}</td>
+                                    <td>{v.stock}</td>
+                                    <td>{v.isDefault ? '✓' : ''}</td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(v)}>Edit</button>
+                                            {!v.isDefault && (
+                                                <button className="btn btn-sm" style={{ background: 'var(--primary)', color: '#fff' }} onClick={() => handleSetDefault(v.id)}>Set Default</button>
+                                            )}
+                                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(v.id)}>Del</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Add / Edit Form */}
+            <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, alignItems: 'end' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label>Weight Label</label>
+                    <input className="form-control" placeholder="e.g. 250g" value={form.weightLabel} onChange={e => setForm({ ...form, weightLabel: e.target.value })} required />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label>Sale Price (₹)</label>
+                    <input className="form-control" type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label>Cost Price (₹)</label>
+                    <input className="form-control" type="number" min="0" step="0.01" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label>Stock</label>
+                    <input className="form-control" type="number" min="0" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={form.isDefault} onChange={e => setForm({ ...form, isDefault: e.target.checked })} />
+                        Default
+                    </label>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="submit" className="btn btn-primary btn-sm">{editingId ? 'Update' : 'Add'} Variant</button>
+                    {editingId && <button type="button" className="btn btn-secondary btn-sm" onClick={resetForm}>Cancel</button>}
+                </div>
+            </form>
+        </div>
+    );
+}
+
 // ─── Products Management ───
 function AdminProducts() {
     const [products, setProducts] = useState([]);
@@ -279,6 +417,7 @@ function AdminProducts() {
             </div>
 
             {showForm && (
+                <>
                 <form onSubmit={handleSubmit} className="card" style={{ marginBottom: 24 }}>
                     <div className="grid grid-2">
                         <div className="form-group">
@@ -351,6 +490,13 @@ function AdminProducts() {
                     </div>
                     <button className="btn btn-primary">{editing ? 'Update' : 'Create'} Product</button>
                 </form>
+                {editing && (
+                    <VariantManager
+                        productId={editing}
+                        lowStockThreshold={products.find(p => p.id === editing)?.lowStockThreshold ?? 10}
+                    />
+                )}
+                </>
             )}
 
             <div className="table-container">
@@ -601,7 +747,12 @@ function AdminOrders() {
                             <tbody>
                                 {selectedOrder.items.map((item, i) => (
                                     <tr key={i}>
-                                        <td>{item.name}</td>
+                                        <td>
+                                            {item.name}
+                                            {item.weightLabel && (
+                                                <small style={{ display: 'block', color: 'var(--text-muted)' }}>{item.weightLabel}</small>
+                                            )}
+                                        </td>
                                         <td>{item.quantity}</td>
                                         <td>₹{item.price}</td>
                                     </tr>

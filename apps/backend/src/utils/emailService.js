@@ -4,44 +4,44 @@ import { logger } from './logger.js';
 let _resend = null;
 
 const getResend = () => {
-    if (!_resend) {
-        if (!process.env.RESEND_API_KEY) {
-            throw new Error('RESEND_API_KEY is not configured. Email sending is unavailable.');
-        }
-        _resend = new Resend(process.env.RESEND_API_KEY);
+  if (!_resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured. Email sending is unavailable.');
     }
-    return _resend;
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
 };
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'Sangam Namkeen <noreply@sangamnamkeen.com>';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 const BLOCKED_DOMAINS = new Set([
-    'tempmail.com', 'temp-mail.org', 'guerrillamail.com', 'mailinator.com',
-    '10minutemail.com', 'throwaway.email', 'maildrop.cc', 'getnada.com',
-    'trashmail.com', 'yopmail.com', 'fakeinbox.com', 'sharklasers.com',
-    'guerrillamail.info', 'grr.la', 'spam4.me', 'mailnesia.com',
-    'emailondeck.com', 'mintemail.com', 'mytemp.email', 'temp-mail.io',
-    'mohmal.com', 'dispostable.com', 'mailcatch.com', 'mailsac.com',
-    'tempinbox.com', 'throwawaymail.com', 'getairmail.com', 'anonbox.net',
-    'deadaddress.com', 'filzmail.com', 'jetable.org', 'mailexpire.com',
-    'meltmail.com', 'mytrashmail.com', 'nowmymail.com', 'pookmail.com',
-    'spamex.com', 'spamgourmet.com', 'spaml.com', 'tempalias.com',
-    'tempe-mail.com', 'tempemail.com', 'tempmailer.com', 'tempmail.eu',
-    'yopmail.fr', 'yopmail.net', 'trashymail.com', 'wegwerfmail.de',
-    'spambox.us', 'nospam.ze.tc', 'zoemail.org',
+  'tempmail.com', 'temp-mail.org', 'guerrillamail.com', 'mailinator.com',
+  '10minutemail.com', 'throwaway.email', 'maildrop.cc', 'getnada.com',
+  'trashmail.com', 'yopmail.com', 'fakeinbox.com', 'sharklasers.com',
+  'guerrillamail.info', 'grr.la', 'spam4.me', 'mailnesia.com',
+  'emailondeck.com', 'mintemail.com', 'mytemp.email', 'temp-mail.io',
+  'mohmal.com', 'dispostable.com', 'mailcatch.com', 'mailsac.com',
+  'tempinbox.com', 'throwawaymail.com', 'getairmail.com', 'anonbox.net',
+  'deadaddress.com', 'filzmail.com', 'jetable.org', 'mailexpire.com',
+  'meltmail.com', 'mytrashmail.com', 'nowmymail.com', 'pookmail.com',
+  'spamex.com', 'spamgourmet.com', 'spaml.com', 'tempalias.com',
+  'tempe-mail.com', 'tempemail.com', 'tempmailer.com', 'tempmail.eu',
+  'yopmail.fr', 'yopmail.net', 'trashymail.com', 'wegwerfmail.de',
+  'spambox.us', 'nospam.ze.tc', 'zoemail.org',
 ]);
 
 export const isEmailBlocked = (email) => {
-    const domain = email.split('@')[1]?.toLowerCase();
-    return domain ? BLOCKED_DOMAINS.has(domain) : true;
+  const domain = email.split('@')[1]?.toLowerCase();
+  return domain ? BLOCKED_DOMAINS.has(domain) : true;
 };
 
 export const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return { valid: false, reason: 'Invalid email format' };
-    if (isEmailBlocked(email)) return { valid: false, reason: 'Temporary email addresses are not allowed' };
-    return { valid: true };
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return { valid: false, reason: 'Invalid email format' };
+  if (isEmailBlocked(email)) return { valid: false, reason: 'Temporary email addresses are not allowed' };
+  return { valid: true };
 };
 
 const emailWrapper = (content) => `
@@ -72,8 +72,8 @@ const emailWrapper = (content) => `
 </html>`;
 
 export const sendVerificationEmail = async (email, name, verificationToken) => {
-    const verificationUrl = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
-    const html = emailWrapper(`
+  const verificationUrl = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
+  const html = emailWrapper(`
       <tr>
         <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:40px 20px;text-align:center;">
           <h1 style="color:#fff;margin:0;font-size:28px;">Verify Your Email</h1>
@@ -98,26 +98,26 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
         </td>
       </tr>`);
 
-    try {
-        const resend = getResend();
-        const { data, error } = await resend.emails.send({
-            from: FROM_ADDRESS,
-            to: email,
-            subject: 'Verify Your Email — Sangam Namkeen',
-            html,
-        });
-        if (error) throw new Error(error.message || 'Resend API error');
-        logger.info('Verification email sent', { email, messageId: data?.id });
-        return { success: true, messageId: data?.id };
-    } catch (err) {
-        logger.error('Failed to send verification email', { error: err.message, email });
-        throw err;
-    }
+  try {
+    const resend = getResend();
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: email,
+      subject: 'Verify Your Email — Sangam Namkeen',
+      html,
+    });
+    if (error) throw new Error(error.message || 'Resend API error');
+    logger.info('Verification email sent', { email, messageId: data?.id });
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    logger.error('Failed to send verification email', { error: err.message, email });
+    throw err;
+  }
 };
 
 export const sendPasswordResetEmail = async (email, name, resetToken) => {
-    const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
-    const html = emailWrapper(`
+  const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+  const html = emailWrapper(`
       <tr>
         <td style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:40px 20px;text-align:center;">
           <h1 style="color:#fff;margin:0;font-size:28px;">Reset Your Password</h1>
@@ -142,36 +142,36 @@ export const sendPasswordResetEmail = async (email, name, resetToken) => {
         </td>
       </tr>`);
 
-    try {
-        const resend = getResend();
-        const { data, error } = await resend.emails.send({
-            from: FROM_ADDRESS,
-            to: email,
-            subject: 'Reset Your Password — Sangam Namkeen',
-            html,
-        });
-        if (error) throw new Error(error.message || 'Resend API error');
-        logger.info('Password reset email sent', { email, messageId: data?.id });
-        return { success: true, messageId: data?.id };
-    } catch (err) {
-        logger.error('Failed to send password reset email', { error: err.message, email });
-        throw err;
-    }
+  try {
+    const resend = getResend();
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: email,
+      subject: 'Reset Your Password — Sangam Namkeen',
+      html,
+    });
+    if (error) throw new Error(error.message || 'Resend API error');
+    logger.info('Password reset email sent', { email, messageId: data?.id });
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    logger.error('Failed to send password reset email', { error: err.message, email });
+    throw err;
+  }
 };
 
 export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
-    const { orderId, items, totalAmount, shippingAddress } = orderDetails;
+  const { orderId, items, totalAmount, shippingAddress } = orderDetails;
 
-    const itemsHtml = Array.isArray(items)
-        ? items.map(item => `
+  const itemsHtml = Array.isArray(items)
+    ? items.map(item => `
             <tr>
               <td style="padding:10px;border-bottom:1px solid #eee;">${item.name ?? 'Item'}</td>
               <td style="padding:10px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
               <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">₹${item.price}</td>
             </tr>`).join('')
-        : '';
+    : '';
 
-    const html = emailWrapper(`
+  const html = emailWrapper(`
       <tr>
         <td style="background:linear-gradient(135deg,#10b981,#059669);padding:40px 20px;text-align:center;">
           <h1 style="color:#fff;margin:0;font-size:28px;">✓ Order Confirmed!</h1>
@@ -223,21 +223,21 @@ export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
         </td>
       </tr>`);
 
-    try {
-        const resend = getResend();
-        const { data, error } = await resend.emails.send({
-            from: process.env.EMAIL_FROM || 'Sangam Namkeen <orders@sangamnamkeen.com>',
-            to: email,
-            subject: `Order Confirmed #${orderId} — Sangam Namkeen`,
-            html,
-        });
-        if (error) throw new Error(error.message || 'Resend API error');
-        logger.info('Order confirmation email sent', { email, orderId, messageId: data?.id });
-        return { success: true, messageId: data?.id };
-    } catch (err) {
-        logger.error('Failed to send order confirmation email', { error: err.message, email, orderId });
-        throw err;
-    }
+  try {
+    const resend = getResend();
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Sangam Namkeen <orders@sangamnamkeen.com>',
+      to: email,
+      subject: `Order Confirmed #${orderId} — Sangam Namkeen`,
+      html,
+    });
+    if (error) throw new Error(error.message || 'Resend API error');
+    logger.info('Order confirmation email sent', { email, orderId, messageId: data?.id });
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    logger.error('Failed to send order confirmation email', { error: err.message, email, orderId });
+    throw err;
+  }
 };
 
 export { sendVerificationEmail, sendPasswordResetEmail, sendOrderConfirmationEmail, validateEmail, isEmailBlocked };

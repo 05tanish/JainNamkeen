@@ -3,8 +3,8 @@ import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { logger } from '../../utils/logger.js';
 
-class NotificationService {
-    static async createNotification({ title, body, type, recipients, subject }, createdBy) {
+
+export const createNotification = async ({ title, body, type, recipients, subject }, createdBy) => {
         return Notification.create({
             title,
             body,
@@ -15,14 +15,14 @@ class NotificationService {
         });
     }
 
-    static async getNotifications({ type } = {}) {
+export const getNotifications = async ({ type } = {}) => {
         const query = {};
         if (type) query.type = type;
         // Don't populate createdBy since it's not in MongoDB anymore
         return Notification.find(query).sort({ createdAt: -1 });
     }
 
-    static async broadcastNotification(id) {
+export const broadcastNotification = async (id) => {
         const notification = await Notification.findById(id);
         if (!notification) throw new ApiError(404, 'Notification not found');
         notification.isSent = true;
@@ -31,12 +31,12 @@ class NotificationService {
         return notification;
     }
 
-    static async deleteNotification(id) {
+export const deleteNotification = async (id) => {
         const notification = await Notification.findByIdAndDelete(id);
         if (!notification) throw new ApiError(404, 'Notification not found');
     }
 
-    static async getUserNotifications(user) {
+export const getUserNotifications = async (user) => {
         try {
             // Get user's read notifications from Prisma
             const userData = await prisma.user.findUnique({
@@ -62,7 +62,7 @@ class NotificationService {
         }
     }
 
-    static async markAllAsRead(user) {
+export const markAllAsRead = async (user) => {
         try {
             const isStaff = ['STAFF', 'ADMIN'].includes(user.role);
             const notifications = await Notification.find({
@@ -89,7 +89,4 @@ class NotificationService {
             logger.error('Error marking notifications as read:', error);
             // Don't throw error, just log it
         }
-    }
-}
-
-export default NotificationService;
+};

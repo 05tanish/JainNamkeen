@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import BannerService from './banner.service.js';
+import * as BannerService from './banner.service.js';
 
 export const createBanner = asyncHandler(async (req, res) => {
     const banner = await BannerService.createBanner(req.body, req.file);

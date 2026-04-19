@@ -1,6 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
-import OrderService from './order.service.js';
+import * as OrderService from './order.service.js';
 
 export const createOrder = asyncHandler(async (req, res) => {
     const order = await OrderService.createOrder(req.user.id, req.body);

@@ -102,7 +102,7 @@ export default function UserOrders() {
                         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                             {order.items.map((item, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
-                                    <span>🍿</span> {item.name || item.product?.name} × {item.quantity}
+                                    <span>🍿</span> {item.name || item.product?.name}{item.weightLabel ? ` (${item.weightLabel})` : ''} × {item.quantity}
                                 </div>
                             ))}
                         </div>

@@ -1,18 +1,18 @@
 import Page from './page.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-class PageService {
-    static async getPages() {
+
+export const getPages = async () => {
         return Page.find().sort({ createdAt: -1 });
     }
 
-    static async getPageBySlug(slug) {
+export const getPageBySlug = async (slug) => {
         const page = await Page.findOne({ slug, isActive: true });
         if (!page) throw new ApiError(404, 'Page not found');
         return page;
     }
 
-    static async createPage({ title, slug, content, isActive }) {
+export const createPage = async ({ title, slug, content, isActive }) => {
         if (!slug) throw new ApiError(400, 'Slug is required');
         const normalizedSlug = slug.toLowerCase();
         const existing = await Page.findOne({ slug: normalizedSlug });
@@ -20,7 +20,7 @@ class PageService {
         return Page.create({ title, slug: normalizedSlug, content, isActive });
     }
 
-    static async updatePage(id, { title, slug, content, isActive }) {
+export const updatePage = async (id, { title, slug, content, isActive }) => {
         const page = await Page.findById(id);
         if (!page) throw new ApiError(404, 'Page not found');
         if (slug) {
@@ -36,11 +36,8 @@ class PageService {
         return page;
     }
 
-    static async deletePage(id) {
+export const deletePage = async (id) => {
         const page = await Page.findById(id);
         if (!page) throw new ApiError(404, 'Page not found');
         await Page.deleteOne({ _id: id });
-    }
-}
-
-export default PageService;
+};

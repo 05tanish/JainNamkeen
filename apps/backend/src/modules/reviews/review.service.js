@@ -2,8 +2,7 @@ import Review from './review.model.js';
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-class ReviewService {
-    static async getProductReviews(productId) {
+export const getProductReviews = async (productId) => {
         const reviews = await Review.find({ product: productId })
             .populate('user', 'name')
             .sort({ createdAt: -1 });
@@ -14,7 +13,7 @@ class ReviewService {
         return { reviews, stats: { totalReviews, averageRating } };
     }
 
-    static async createReview(productId, userId, { rating, comment }, files) {
+export const createReview = async (productId, userId, { rating, comment }, files) => {
         const existing = await Review.findOne({ product: productId, user: userId });
         if (existing) throw new ApiError(400, 'You have already reviewed this product');
 
@@ -28,7 +27,7 @@ class ReviewService {
         });
     }
 
-    static async updateReview(reviewId, userId, userRole, { rating, comment, existingImages }, files) {
+export const updateReview = async (reviewId, userId, userRole, { rating, comment, existingImages }, files) => {
         const review = await Review.findById(reviewId);
         if (!review) throw new ApiError(404, 'Review not found');
         if (review.user.toString() !== userId.toString() && userRole?.toUpperCase() !== 'ADMIN') {
@@ -52,7 +51,7 @@ class ReviewService {
         return review;
     }
 
-    static async deleteReview(reviewId, userId, userRole) {
+export const deleteReview = async (reviewId, userId, userRole) => {
         const review = await Review.findById(reviewId);
         if (!review) throw new ApiError(404, 'Review not found');
         if (review.user.toString() !== userId.toString() && userRole?.toUpperCase() !== 'ADMIN') {
@@ -61,7 +60,7 @@ class ReviewService {
         await Review.deleteOne({ _id: reviewId });
     }
 
-    static async getAllReviewsAdmin({ product, rating, hasReply }) {
+export const getAllReviewsAdmin = async ({ product, rating, hasReply }) => {
         const query = {};
         if (product) query.product = product;
         if (rating) query.rating = Number(rating);
@@ -95,7 +94,7 @@ class ReviewService {
         }));
     }
 
-    static async replyToReview(reviewId, reply) {
+export const replyToReview = async (reviewId, reply) => {
         if (!reply) throw new ApiError(400, 'Reply content is required');
         const reviewRaw = await Review.findByIdAndUpdate(
             reviewId,
@@ -116,7 +115,7 @@ class ReviewService {
         };
     }
 
-    static async getReviewAnalytics() {
+export const getReviewAnalytics = async () => {
         // Get top rated products from MongoDB reviews
         const topRatedRaw = await Review.aggregate([
             { $group: { _id: '$product', avgRating: { $avg: '$rating' }, count: { $sum: 1 } } },
@@ -225,7 +224,4 @@ class ReviewService {
         );
 
         return { topRated, mostBought };
-    }
-}
-
-export default ReviewService;
+};

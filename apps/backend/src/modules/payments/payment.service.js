@@ -19,11 +19,11 @@ const getRazorpay = () => {
     return _razorpay;
 };
 
-class PaymentService {
+
     /**
      * Create Razorpay order for payment
      */
-    static async createPaymentOrder(orderId, userId) {
+export const createPaymentOrder = async (orderId, userId) => {
         try {
             // Get order details
             const order = await prisma.order.findUnique({
@@ -78,7 +78,7 @@ class PaymentService {
     /**
      * Verify Razorpay payment signature
      */
-    static async verifyPayment(orderId, paymentData) {
+export const verifyPayment = async (orderId, paymentData) => {
         try {
             const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = paymentData;
 
@@ -123,7 +123,7 @@ class PaymentService {
     /**
      * Handle payment failure
      */
-    static async handlePaymentFailure(orderId, errorData) {
+export const handlePaymentFailure = async (orderId, errorData) => {
         try {
             await prisma.order.update({
                 where: { id: orderId },
@@ -143,7 +143,7 @@ class PaymentService {
     /**
      * Get payment details
      */
-    static async getPaymentDetails(paymentId) {
+export const getPaymentDetails = async (paymentId) => {
         try {
             const payment = await getRazorpay().payments.fetch(paymentId);
             return payment;
@@ -156,7 +156,7 @@ class PaymentService {
     /**
      * Initiate refund
      */
-    static async initiateRefund(orderId, amount, reason) {
+export const initiateRefund = async (orderId, amount, reason) => {
         try {
             const order = await prisma.order.findUnique({
                 where: { id: orderId }
@@ -204,7 +204,7 @@ class PaymentService {
     /**
      * Webhook handler for Razorpay events
      */
-    static async handleWebhook(body, signature) {
+export const handleWebhook = async (body, signature) => {
         try {
             // Verify webhook signature
             const expectedSignature = crypto
@@ -223,13 +223,13 @@ class PaymentService {
 
             switch (event) {
                 case 'payment.captured':
-                    await this.handlePaymentCaptured(payload);
+                    await handlePaymentCaptured(payload);
                     break;
                 case 'payment.failed':
-                    await this.handlePaymentFailed(payload);
+                    await handlePaymentFailed(payload);
                     break;
                 case 'refund.created':
-                    await this.handleRefundCreated(payload);
+                    await handleRefundCreated(payload);
                     break;
                 default:
                     logger.info(`Unhandled webhook event: ${event}`);
@@ -242,7 +242,7 @@ class PaymentService {
         }
     }
 
-    static async handlePaymentCaptured(payload) {
+export const handlePaymentCaptured = async (payload) => {
         const orderId = payload.notes.orderId;
         if (orderId) {
             await prisma.order.update({
@@ -256,7 +256,7 @@ class PaymentService {
         }
     }
 
-    static async handlePaymentFailed(payload) {
+export const handlePaymentFailed = async (payload) => {
         const orderId = payload.notes.orderId;
         if (orderId) {
             await prisma.order.update({
@@ -270,9 +270,6 @@ class PaymentService {
         }
     }
 
-    static async handleRefundCreated(payload) {
+export const handleRefundCreated = async (payload) => {
         logger.info(`Refund created: ${payload.id}`);
-    }
-}
-
-export default PaymentService;
+};

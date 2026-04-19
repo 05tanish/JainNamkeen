@@ -1,21 +1,21 @@
 import Banner from './banner.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-class BannerService {
-    static async createBanner(data, file) {
+
+export const createBanner = async (data, file) => {
         const bannerData = { ...data };
         if (file) bannerData.image = `/uploads/${file.filename}`;
         return Banner.create(bannerData);
     }
 
-    static async getBanners({ position, active } = {}) {
+export const getBanners = async ({ position, active } = {}) => {
         const query = {};
         if (position) query.position = position;
         if (active !== undefined) query.isActive = active === 'true';
         return Banner.find(query).sort({ createdAt: -1 });
     }
 
-    static async updateBanner(id, data, file) {
+export const updateBanner = async (id, data, file) => {
         const updates = { ...data };
         if (file) updates.image = `/uploads/${file.filename}`;
         const banner = await Banner.findByIdAndUpdate(id, updates, { new: true });
@@ -23,18 +23,15 @@ class BannerService {
         return banner;
     }
 
-    static async deleteBanner(id) {
+export const deleteBanner = async (id) => {
         const banner = await Banner.findByIdAndDelete(id);
         if (!banner) throw new ApiError(404, 'Banner not found');
     }
 
-    static async toggleBannerStatus(id) {
+export const toggleBannerStatus = async (id) => {
         const banner = await Banner.findById(id);
         if (!banner) throw new ApiError(404, 'Banner not found');
         banner.isActive = !banner.isActive;
         await banner.save();
         return banner;
-    }
-}
-
-export default BannerService;
+};

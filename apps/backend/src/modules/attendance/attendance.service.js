@@ -2,11 +2,10 @@ import Attendance from './attendance.model.js';
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-class AttendanceService {
     /**
      * Mark (upsert) attendance for a user on a given date.
      */
-    static async markAttendance({ userId, date, status, note }, markedBy) {
+export const markAttendance = async ({ userId, date, status, note }, markedBy) => {
         // Validate userId format (Prisma uses cuid, not MongoDB ObjectId)
         if (!userId || typeof userId !== 'string') throw new ApiError(400, 'Invalid user ID');
 
@@ -33,7 +32,7 @@ class AttendanceService {
     /**
      * Get all attendance records (admin).
      */
-    static async getAllAttendance({ date, month, year, userId }) {
+export const getAllAttendance = async ({ date, month, year, userId }) => {
         const query = {};
 
         if (userId) {
@@ -85,7 +84,7 @@ class AttendanceService {
     /**
      * Get the current user's own attendance.
      */
-    static async getMyAttendance(userId, { month, year }) {
+export const getMyAttendance = async (userId, { month, year }) => {
         const query = { user: userId };
 
         if (month && year) {
@@ -118,7 +117,7 @@ class AttendanceService {
     /**
      * Aggregate monthly attendance stats for all active staff.
      */
-    static async getAttendanceStats({ month, year }) {
+export const getAttendanceStats = async ({ month, year }) => {
         const m = parseInt(month);
         const y = parseInt(year);
 
@@ -162,7 +161,4 @@ class AttendanceService {
         });
 
         return stats.sort((a, b) => a.name.localeCompare(b.name));
-    }
-}
-
-export default AttendanceService;
+};
