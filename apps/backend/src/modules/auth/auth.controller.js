@@ -3,14 +3,37 @@ import jwt from 'jsonwebtoken';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/ApiResponse.js';
 import { sendTokenResponse, extractToken } from '../../utils/TokenHelper.js';
-import { getCookieOptions } from '../../utils/JWT.js';
 import { cacheSet } from '../../config/Redis.js';
 import * as AuthService from './auth.service.js';
 
 export const register = asyncHandler(async (req, res) => {
     const { name, email, password, phone } = req.body;
-    const { user, token } = await AuthService.register({ name, email, password, phone });
-    sendTokenResponse(res, user, token, 201, 'Account created successfully');
+    const result = await AuthService.register({ name, email, password, phone });
+    successResponse(res, { statusCode: 201, data: result, message: 'Account created. Please verify your email.' });
+});
+
+export const verifyEmail = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+    const { user, token } = await AuthService.verifyEmail({ email, otp });
+    sendTokenResponse(res, user, token, 200, 'Email verified successfully');
+});
+
+export const resendOtp = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const result = await AuthService.resendOtp({ email });
+    successResponse(res, { statusCode: 200, data: result, message: result.message });
+});
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const result = await AuthService.forgotPassword({ email });
+    successResponse(res, { statusCode: 200, data: null, message: result.message });
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+    const result = await AuthService.resetPassword({ email, otp, newPassword });
+    successResponse(res, { statusCode: 200, data: null, message: result.message });
 });
 
 export const login = asyncHandler(async (req, res) => {
@@ -26,14 +49,7 @@ export const getMe = asyncHandler(async (req, res) => {
 
 export const updateProfile = asyncHandler(async (req, res) => {
     const { name, phone, street, city, state, pincode } = req.body;
-    const user = await AuthService.updateProfile(req.user.id, { 
-        name, 
-        phone, 
-        street,
-        city,
-        state,
-        pincode
-    });
+    const user = await AuthService.updateProfile(req.user.id, { name, phone, street, city, state, pincode });
     successResponse(res, { statusCode: 200, data: user, message: 'Profile updated' });
 });
 
@@ -44,7 +60,6 @@ export const changePassword = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
-    // Blacklist the current token so it cannot be reused even within its JWT validity window
     try {
         const token = extractToken(req);
         const decoded = jwt.decode(token);
@@ -56,7 +71,7 @@ export const logout = asyncHandler(async (req, res) => {
             }
         }
     } catch {
-        // No token present or already expired — safe to proceed
+        // No token present or already expired
     }
 
     res.clearCookie('token', {

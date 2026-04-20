@@ -14,8 +14,9 @@ export default function Register() {
         e.preventDefault();
         setError('');
         try {
-            await register(form);
-            navigate('/');
+            const result = await register(form);
+            // result = { requiresVerification: true, email }
+            navigate('/verify-email', { state: { email: result.email } });
         } catch (err) {
             setError(err.message);
         }

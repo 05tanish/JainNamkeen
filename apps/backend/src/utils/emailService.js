@@ -13,7 +13,7 @@ const getResend = () => {
   return _resend;
 };
 
-const FROM_ADDRESS = process.env.EMAIL_FROM || 'Sangam Namkeen <noreply@sangamnamkeen.com>';
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'delivered@resend.dev';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 const BLOCKED_DOMAINS = new Set([
@@ -71,8 +71,7 @@ const emailWrapper = (content) => `
 </body>
 </html>`;
 
-export const sendVerificationEmail = async (email, name, verificationToken) => {
-  const verificationUrl = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
+export const sendVerificationEmail = async (email, name, otp) => {
   const html = emailWrapper(`
       <tr>
         <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:40px 20px;text-align:center;">
@@ -83,17 +82,15 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
         <td style="padding:40px 30px;">
           <h2 style="color:#333;margin:0 0 10px;">Hello, ${name}!</h2>
           <p style="color:#666;font-size:16px;line-height:1.6;">
-            Thank you for registering. Please click the button below to verify your email address.
+            Thank you for registering. Use the OTP below to verify your email address.
           </p>
           <div style="text-align:center;margin:30px 0;">
-            <a href="${verificationUrl}"
-               style="background:#f97316;color:#fff;padding:14px 32px;border-radius:6px;
-                      text-decoration:none;font-weight:bold;font-size:16px;display:inline-block;">
-              Verify Email
-            </a>
+            <div style="display:inline-block;background:#f97316;color:#fff;padding:20px 40px;border-radius:8px;font-size:36px;font-weight:bold;letter-spacing:8px;">
+              ${otp}
+            </div>
           </div>
-          <p style="color:#999;font-size:14px;">
-            This link expires in 24 hours. If you did not sign up, please ignore this email.
+          <p style="color:#999;font-size:14px;text-align:center;">
+            This OTP expires in 10 minutes. If you did not sign up, please ignore this email.
           </p>
         </td>
       </tr>`);
@@ -103,20 +100,19 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: email,
-      subject: 'Verify Your Email — Sangam Namkeen',
+      subject: 'Your Verification OTP — Sangam Namkeen',
       html,
     });
     if (error) throw new Error(error.message || 'Resend API error');
-    logger.info('Verification email sent', { email, messageId: data?.id });
+    logger.info('Verification OTP sent', { email, messageId: data?.id });
     return { success: true, messageId: data?.id };
   } catch (err) {
-    logger.error('Failed to send verification email', { error: err.message, email });
+    logger.error('Failed to send verification OTP', { error: err.message, email });
     throw err;
   }
 };
 
-export const sendPasswordResetEmail = async (email, name, resetToken) => {
-  const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+export const sendPasswordResetEmail = async (email, name, otp) => {
   const html = emailWrapper(`
       <tr>
         <td style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:40px 20px;text-align:center;">
@@ -127,17 +123,15 @@ export const sendPasswordResetEmail = async (email, name, resetToken) => {
         <td style="padding:40px 30px;">
           <h2 style="color:#333;margin:0 0 10px;">Hello, ${name}!</h2>
           <p style="color:#666;font-size:16px;line-height:1.6;">
-            We received a request to reset your password. Click below to proceed.
+            We received a request to reset your password. Use the OTP below.
           </p>
           <div style="text-align:center;margin:30px 0;">
-            <a href="${resetUrl}"
-               style="background:#3b82f6;color:#fff;padding:14px 32px;border-radius:6px;
-                      text-decoration:none;font-weight:bold;font-size:16px;display:inline-block;">
-              Reset Password
-            </a>
+            <div style="display:inline-block;background:#3b82f6;color:#fff;padding:20px 40px;border-radius:8px;font-size:36px;font-weight:bold;letter-spacing:8px;">
+              ${otp}
+            </div>
           </div>
-          <p style="color:#999;font-size:14px;">
-            This link expires in 1 hour. If you did not request this, please ignore this email.
+          <p style="color:#999;font-size:14px;text-align:center;">
+            This OTP expires in 10 minutes. If you did not request this, please ignore this email.
           </p>
         </td>
       </tr>`);
@@ -151,10 +145,10 @@ export const sendPasswordResetEmail = async (email, name, resetToken) => {
       html,
     });
     if (error) throw new Error(error.message || 'Resend API error');
-    logger.info('Password reset email sent', { email, messageId: data?.id });
+    logger.info('Password reset OTP sent', { email, messageId: data?.id });
     return { success: true, messageId: data?.id };
   } catch (err) {
-    logger.error('Failed to send password reset email', { error: err.message, email });
+    logger.error('Failed to send password reset OTP', { error: err.message, email });
     throw err;
   }
 };
@@ -239,5 +233,3 @@ export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
     throw err;
   }
 };
-
-export { sendVerificationEmail, sendPasswordResetEmail, sendOrderConfirmationEmail, validateEmail, isEmailBlocked };

@@ -70,8 +70,9 @@ function AuthProvider({ children }) {
         dispatch({ type: 'AUTH_START' });
         try {
             const { data } = await API.post('/auth/register', userData);
-            dispatch({ type: 'AUTH_SUCCESS', payload: data });
-            return data;
+            // data = { requiresVerification: true, email }
+            dispatch({ type: 'AUTH_ERROR', payload: null }); // clear loading
+            return data; // caller handles redirect to /verify-email
         } catch (error) {
             const msg = error.response?.data?.message || 'Registration failed';
             dispatch({ type: 'AUTH_ERROR', payload: msg });

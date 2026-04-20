@@ -7,11 +7,15 @@ import {
     updateProfileSchema, 
     changePasswordSchema 
 } from './auth.schema.js';
-import { register, login, getMe, updateProfile, changePassword, logout } from './auth.controller.js';
+import { register, login, getMe, updateProfile, changePassword, logout, verifyEmail, resendOtp, forgotPassword, resetPassword } from './auth.controller.js';
 
 const router = express.Router();
 
 router.post('/register', validate(registerSchema), register);
+router.post('/verify-email', verifyEmail);
+router.post('/resend-otp', resendOtp);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.post('/login', validate(loginSchema), login);
 router.post('/logout', logout);
 router.get('/me', auth, getMe);

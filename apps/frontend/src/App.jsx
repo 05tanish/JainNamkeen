@@ -17,6 +17,9 @@ import Register from './pages/public/Register';
 import About from './pages/public/About';
 import Offers from './pages/public/Offers';
 import PageView from './pages/PageView';
+import VerifyEmail from './pages/auth/VerifyEmail';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 // User pages
 import Cart from './pages/user/Cart';
@@ -44,6 +47,9 @@ function App() {
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/offers" element={<Offers />} />
                 <Route path="/pages/:slug" element={<PageView />} />
