@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Sangam Namkeen E-commerce Backend API",
+  "description": "Jain Namkeen E-commerce Backend API",
   "main": "src/server.js",
   "type": "module",
   "engines": {
@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "worker": "node src/queues/order.worker.js",
+    "dev:worker": "nodemon src/queues/order.worker.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint src/**/*.js",
     "logs:clean": "node scripts/cleanLogs.js",
@@ -47,6 +49,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "pg": "^8.20.0",
     "prisma": "^7.7.0",
+    "prom-client": "^15.1.0",
     "razorpay": "^2.9.6",
     "redis": "^4.7.0",
     "resend": "^4.0.1",

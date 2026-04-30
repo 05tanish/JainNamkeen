@@ -1,4 +1,4 @@
-# Sangam Namkeen E-commerce Backend API
+# Jain Namkeen E-commerce Backend API
 
 Production-ready Node.js/Express backend with MongoDB, featuring comprehensive logging, audit trails, email verification, and security best practices.
 
