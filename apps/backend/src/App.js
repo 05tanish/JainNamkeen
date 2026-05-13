@@ -9,8 +9,10 @@ import cookieParser from 'cookie-parser';
 
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { requestIdMiddleware } from './middleware/requestId.js';
 import { sanitizeAll } from './utils/sanitize.js';
 import { provideCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
+import { metricsMiddleware, metricsEndpoint } from './middleware/metrics.js';
 
 import authRoutes from './modules/auth/auth.routes.js';
 import productRoutes from './modules/products/product.routes.js';
@@ -26,6 +28,7 @@ import reviewRoutes from './modules/reviews/review.routes.js';
 import pageRoutes from './modules/pages/page.routes.js';
 import attendanceRoutes from './modules/attendance/attendance.routes.js';
 import paymentRoutes from './modules/payments/payment.routes.js';
+import settingsRoutes from './modules/settings/settings.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,22 +48,39 @@ app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 // AFTER CORS so that error responses (429, 403) still carry the
 // Access-Control-Allow-Origin header the browser requires.
 const getAllowedOrigins = () => {
+    // In production, only allow explicitly configured domains
+    if (process.env.NODE_ENV === 'production') {
+        if (process.env.FRONTEND_URL) {
+            return process.env.FRONTEND_URL.split(',').map(o => o.trim());
+        }
+        // No defaults in production - must be explicitly configured
+        return [];
+    }
+    
+    // In development, allow localhost for easier development
     const defaults = [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         'http://localhost:3000',
+        "http://frontend",
     ];
+    
     if (process.env.FRONTEND_URL) {
         const custom = process.env.FRONTEND_URL.split(',').map(o => o.trim());
         return [...new Set([...defaults, ...custom])];
     }
+    
     return defaults;
 };
 
 app.use(cors({
     origin: (origin, callback) => {
         const allowed = getAllowedOrigins();
-        if (!origin || allowed.includes(origin) || process.env.NODE_ENV === 'development') {
+        // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
+        // AND requests from whitelisted origins.
+        // We do NOT allow all origins in development anymore — that was a security gap
+        // where accidentally deploying with NODE_ENV=development would open CORS to everyone.
+        if (!origin || allowed.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -103,8 +123,14 @@ const authLimiter = rateLimit({
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+// Add request ID middleware (must be early in the chain)
+app.use(requestIdMiddleware);
+
 // Add input sanitization middleware
 app.use(sanitizeAll);
+
+// Add Prometheus metrics middleware
+app.use(metricsMiddleware);
 
 app.use(requestLogger);
 
@@ -139,6 +165,26 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// Prometheus metrics endpoint - restricted to internal network only
+app.get('/metrics', (req, res, next) => {
+    // Allow access from localhost, Docker internal network, or if explicitly allowed
+    const allowedIPs = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+    const clientIP = req.ip || req.connection.remoteAddress;
+    
+    // In development, allow all access for easier testing
+    if (process.env.NODE_ENV === 'development' || allowedIPs.includes(clientIP)) {
+        return next();
+    }
+    
+    // In production, deny access (Prometheus should scrape from internal network)
+    res.status(403).json({ 
+        success: false, 
+        statusCode: 403,
+        message: 'Access denied' 
+    });
+}, metricsEndpoint);
 
 app.get('/api/health', async (_req, res) => {
     try {
@@ -146,42 +192,34 @@ app.get('/api/health', async (_req, res) => {
         const { isRedisConnected } = await import('./config/Redis.js');
         const mongoose = await import('mongoose');
 
-        // Check database connections
-        const checks = {
-            postgres: 'unknown',
-            mongodb: 'unknown',
-            redis: 'unknown'
-        };
-
+        // Check database connections internally but don't expose details
+        let allHealthy = true;
+        
         // Check PostgreSQL
         try {
             await prisma.$queryRaw`SELECT 1`;
-            checks.postgres = 'connected';
         } catch {
-            checks.postgres = 'disconnected';
+            allHealthy = false;
         }
 
         // Check MongoDB
-        checks.mongodb = mongoose.default.connection.readyState === 1 ? 'connected' : 'disconnected';
+        if (mongoose.default.connection.readyState !== 1) {
+            allHealthy = false;
+        }
 
-        // Check Redis
-        checks.redis = isRedisConnected() ? 'connected' : 'disconnected';
+        // Check Redis (optional - don't fail health check if Redis is down)
+        // Redis is used for caching, not critical for basic functionality
 
-        const allHealthy = checks.postgres === 'connected' && checks.mongodb === 'connected';
-
+        // Return simple health status without exposing internal architecture
         res.status(allHealthy ? 200 : 503).json({
             success: allHealthy,
-            statusCode: allHealthy ? 200 : 503,
-            message: allHealthy ? 'All systems operational' : 'Some services unavailable',
-            timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV,
-            services: checks
+            status: allHealthy ? 'healthy' : 'unhealthy',
+            timestamp: new Date().toISOString()
         });
     } catch (error) {
         res.status(503).json({
             success: false,
-            statusCode: 503,
-            message: 'Health check failed',
+            status: 'unhealthy',
             timestamp: new Date().toISOString()
         });
     }
