@@ -16,7 +16,7 @@ export const productSchema = z.object({
         }))
         .optional()
         .default([]),
-    brand: z.string().trim().optional().default('Sangam Namkeen'),
+    brand: z.string().trim().optional().default('Jain Namkeen'),
     weight: z.string().trim().optional().default('250g'),
     tags: z.union([
         z.array(z.string().trim().transform(t => t.toLowerCase())),
