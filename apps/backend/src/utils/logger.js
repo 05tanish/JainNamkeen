@@ -36,6 +36,7 @@ if (process.env.LOKI_HOST) {
     let lokiRetries = 0;
     const MAX_LOKI_RETRIES = 3;
     let lokiEnabled = true;
+    let lokiTransportRef = null;
 
     try {
         const lokiTransport = new LokiTransport({
@@ -56,6 +57,15 @@ if (process.env.LOKI_HOST) {
                 } else if (lokiEnabled) {
                     lokiEnabled = false;
                     console.warn(`❌ Loki unavailable after ${MAX_LOKI_RETRIES} attempts — logging to Loki disabled`);
+                    // Remove transport from logger
+                    if (lokiTransportRef && logger) {
+                        try {
+                            logger.remove(lokiTransportRef);
+                            console.log('Loki transport removed from logger');
+                        } catch (removeErr) {
+                            console.warn(`Failed to remove Loki transport: ${removeErr.message}`);
+                        }
+                    }
                 }
             },
             ...(process.env.LOKI_USERNAME && process.env.LOKI_PASSWORD && {
@@ -71,6 +81,15 @@ if (process.env.LOKI_HOST) {
             } else if (lokiEnabled) {
                 lokiEnabled = false;
                 console.warn(`❌ Loki transport failed after ${MAX_LOKI_RETRIES} attempts — continuing without Loki`);
+                // Remove transport from logger
+                if (lokiTransportRef && logger) {
+                    try {
+                        logger.remove(lokiTransportRef);
+                        console.log('Loki transport removed from logger');
+                    } catch (removeErr) {
+                        console.warn(`Failed to remove Loki transport: ${removeErr.message}`);
+                    }
+                }
             }
         });
 
@@ -80,6 +99,7 @@ if (process.env.LOKI_HOST) {
             }
         });
         
+        lokiTransportRef = lokiTransport;
         transports.push(lokiTransport);
     } catch (err) {
         console.warn(`⚠️  Failed to initialize Loki transport: ${err.message} — logging to Loki disabled`);
@@ -114,6 +134,7 @@ logger.stream = { write: (msg) => logger.http(msg.trim()) };
 
 logger.logRequest = (req, res, duration) => {
     logger.http('HTTP Request', {
+        requestId: req.id,
         method: req.method,
         url: req.originalUrl,
         status: res.statusCode,
@@ -121,6 +142,7 @@ logger.logRequest = (req, res, duration) => {
         ip: req.ip || req.socket?.remoteAddress,
         userAgent: req.get('user-agent'),
         userId: req.user?.id,
+        module: 'http'
     });
 };
 
@@ -129,8 +151,10 @@ logger.logError = (error, req = null) => {
         name: error.name,
         message: error.message,
         stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
+        module: 'error'
     };
     if (req) {
+        log.requestId = req.id;
         log.method = req.method;
         log.url = req.originalUrl;
         log.ip = req.ip || req.socket?.remoteAddress;
@@ -140,11 +164,44 @@ logger.logError = (error, req = null) => {
 };
 
 logger.logSecurity = (event, details) => {
-    logger.warn('Security Event', { event, ...details, timestamp: new Date().toISOString() });
+    logger.warn('Security Event', { 
+        event, 
+        ...details, 
+        module: 'security',
+        timestamp: new Date().toISOString() 
+    });
 };
 
 logger.logAudit = (action, details) => {
-    logger.info('Audit Event', { action, ...details, timestamp: new Date().toISOString() });
+    logger.info('Audit Event', { 
+        action, 
+        ...details, 
+        module: 'audit',
+        timestamp: new Date().toISOString() 
+    });
+};
+
+/**
+ * Create a child logger with request context
+ * Use this in route handlers to automatically include request ID
+ */
+logger.withRequest = (req) => {
+    return logger.child({
+        requestId: req.id,
+        method: req.method,
+        url: req.originalUrl,
+        userId: req.user?.id
+    });
+};
+
+/**
+ * Log with module context
+ * Use this to tag logs by module (auth, orders, products, etc.)
+ */
+logger.withModule = (moduleName) => {
+    return logger.child({
+        module: moduleName
+    });
 };
 
 export { logger };
