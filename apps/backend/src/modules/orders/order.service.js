@@ -1,6 +1,8 @@
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { getFirstImage } from '../../utils/safeJsonParse.js';
+import { initiateRefund as razorpayInitiateRefund } from '../payments/payment.service.js';
+import { orderQueue } from '../../queues/order.queue.js';
 
 const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
@@ -10,6 +12,20 @@ const roundMoney = (amount) => Math.round(amount * 100) / 100;
 
 export const createOrder = async (userId, { items, totalAmount, shippingAddress, paymentMethod, couponCode }) => {
         if (!items || items.length === 0) throw new ApiError(400, 'No items in order');
+
+        // BLOCK ONLINE PAYMENT if not enabled
+        // Check database first, fallback to environment variable
+        const onlinePaymentSetting = await prisma.settings.findUnique({
+            where: { key: 'ENABLE_ONLINE_PAYMENT' }
+        });
+        
+        const isOnlinePaymentEnabled = onlinePaymentSetting 
+            ? onlinePaymentSetting.value === 'true'
+            : process.env.ENABLE_ONLINE_PAYMENT === 'true';
+            
+        if (paymentMethod && paymentMethod.toUpperCase() === 'ONLINE' && !isOnlinePaymentEnabled) {
+            throw new ApiError(400, 'Online payment is currently unavailable. Please use Cash on Delivery (COD).');
+        }
 
         const addr = shippingAddress;
         if (!addr?.name || !addr?.phone || !addr?.street || !addr?.city || !addr?.state || !addr?.pincode) {
@@ -184,8 +200,16 @@ export const createOrder = async (userId, { items, totalAmount, shippingAddress,
                 })
             );
 
-            // TODO: [BULLMQ] Queue order processing/notification job
-            // e.g., await orderQueue.add('process-new-order', { orderId: order.id, userId });
+            
+            await orderQueue.add('order-confirmation', {
+                orderId: order.id,
+                userId,
+                customerEmail: order.user.email,
+                customerName: order.user.name,
+                totalAmount: calculatedTotal,
+                items: orderItems.map(i => ({ name: i.name, quantity: i.quantity, price: Number(i.price) }))
+            });
+
             return order;
         }, {
             maxWait: 5000, // Maximum time to wait for transaction to start
@@ -209,22 +233,42 @@ export const getOrders = async (user, filters) => {
             }
         }
 
+        
+        const page  = Math.max(1, parseInt(filters.page)  || 1);
+        const limit = Math.min(100, parseInt(filters.limit) || 20); // cap at 100 per page
+
         const toNum = (d) => (d ? Number(d.toString()) : 0);
-        const orders = await prisma.order.findMany({
-            where,
-            include: {
-                user: { select: { name: true, email: true } },
-                items: true
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-        return orders.map(o => ({
-            ...o,
-            subtotal: toNum(o.subtotal),
-            totalAmount: toNum(o.totalAmount),
-            discount: toNum(o.discount),
-            refundAmount: toNum(o.refundAmount),
-        }));
+
+        // Run count and data fetch in parallel — one DB round-trip instead of two sequential
+        const [total, orders] = await Promise.all([
+            prisma.order.count({ where }),
+            prisma.order.findMany({
+                where,
+                include: {
+                    user: { select: { name: true, email: true } },
+                    items: true
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit
+            })
+        ]);
+
+        return {
+            orders: orders.map(o => ({
+                ...o,
+                subtotal:     toNum(o.subtotal),
+                totalAmount:  toNum(o.totalAmount),
+                discount:     toNum(o.discount),
+                refundAmount: toNum(o.refundAmount),
+            })),
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
     }
 
 export const getOrder = async (orderId, user) => {
@@ -358,6 +402,21 @@ export const processRefund = async (orderId, { refundStatus, refundReason, refun
             throw new ApiError(400, 'Refund amount cannot exceed order total');
         }
 
+        // If admin marks refund as COMPLETED and the order was paid online,
+        // we must actually trigger the Razorpay refund — not just update the DB.
+        // Without this, the DB says "refunded" but the customer never gets money back.
+        if (
+            refundStatus.toUpperCase() === 'COMPLETED' &&
+            order.paymentStatus === 'PAID' &&
+            order.razorpayPaymentId
+        ) {
+            const amountToRefund = refundAmount || Number(order.totalAmount);
+            // This calls Razorpay API and then updates the DB — single source of truth
+            return razorpayInitiateRefund(orderId, amountToRefund, refundReason || 'Admin initiated refund');
+        }
+
+        // For COD orders or status changes other than COMPLETED (e.g. APPROVED, REJECTED),
+        // just update the DB record — no Razorpay call needed.
         const updateData = {
             refundStatus: refundStatus.toUpperCase()
         };

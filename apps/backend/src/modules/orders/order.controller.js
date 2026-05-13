@@ -8,8 +8,10 @@ export const createOrder = asyncHandler(async (req, res) => {
 });
 
 export const getOrders = asyncHandler(async (req, res) => {
-    const orders = await OrderService.getOrders(req.user, req.query);
-    successResponse(res, { statusCode: 200, data: { orders }, message: 'Orders fetched' });
+    const result = await OrderService.getOrders(req.user, req.query);
+    // result already contains { orders: [...], pagination: {...} }
+    // Don't wrap it again in { orders: result }
+    successResponse(res, { statusCode: 200, data: result, message: 'Orders fetched' });
 });
 
 export const getOrderStats = asyncHandler(async (req, res) => {
