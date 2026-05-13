@@ -28,7 +28,7 @@ export const getUserNotifications = asyncHandler(async (req, res) => {
         successResponse(res, { statusCode: 200, data: notifications, message: 'User notifications fetched' });
     } catch (error) {
         // If notifications fail, return empty array instead of error
-        console.error('Notification fetch error:', error);
+        logger.warn('Notification fetch error:', error);
         successResponse(res, { statusCode: 200, data: [], message: 'Notifications unavailable' });
     }
 });
