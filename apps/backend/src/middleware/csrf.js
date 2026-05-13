@@ -1,9 +1,28 @@
 import crypto from 'crypto';
 import { ApiError } from '../utils/ApiError.js';
 import { cacheGet, cacheSet } from '../config/Redis.js';
+import { logger } from '../utils/logger.js';
 
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_TOKEN_TTL = 3600; // 1 hour
+
+// In-memory fallback store for when Redis is unavailable
+const csrfMemoryStore = new Map();
+
+// Cleanup expired tokens every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [key, value] of csrfMemoryStore.entries()) {
+        if (value.expires < now) {
+            csrfMemoryStore.delete(key);
+            cleaned++;
+        }
+    }
+    if (cleaned > 0) {
+        logger.debug(`Cleaned ${cleaned} expired CSRF tokens from memory store`);
+    }
+}, 5 * 60 * 1000);
 
 // Generate a CSRF token
 export const generateCsrfToken = () => {
@@ -31,7 +50,16 @@ export const provideCsrfToken = async (req, res, next) => {
             }
         }
 
-        await cacheSet(`csrf:${sessionKey}`, token, CSRF_TOKEN_TTL);
+        // Try Redis first, fallback to memory
+        try {
+            await cacheSet(`csrf:${sessionKey}`, token, CSRF_TOKEN_TTL);
+        } catch (err) {
+            logger.warn('Redis unavailable for CSRF, using in-memory store');
+            csrfMemoryStore.set(sessionKey, {
+                token,
+                expires: Date.now() + CSRF_TOKEN_TTL * 1000
+            });
+        }
 
         // Send CSRF token in JS-readable cookie so axios can read and send it
         res.cookie('XSRF-TOKEN', token, {
@@ -71,7 +99,17 @@ export const verifyCsrfToken = async (req, _res, next) => {
             throw new ApiError(403, 'CSRF session not found. Please refresh and try again.');
         }
 
-        const storedToken = await cacheGet(`csrf:${sessionKey}`);
+        // Try Redis first, fallback to memory
+        let storedToken;
+        try {
+            storedToken = await cacheGet(`csrf:${sessionKey}`);
+        } catch (err) {
+            logger.warn('Redis unavailable for CSRF verification, checking memory store');
+            const memoryEntry = csrfMemoryStore.get(sessionKey);
+            if (memoryEntry && memoryEntry.expires > Date.now()) {
+                storedToken = memoryEntry.token;
+            }
+        }
 
         if (!storedToken) {
             throw new ApiError(403, 'CSRF token expired or invalid');
