@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { FiGrid, FiBox, FiTag, FiShoppingBag, FiUsers, FiLogOut, FiUser, FiCalendar, FiMapPin, FiPercent, FiImage, FiBell, FiAlertTriangle, FiTruck, FiXCircle, FiFileText, FiStar, FiMessageSquare } from 'react-icons/fi';
+import { FiGrid, FiBox, FiTag, FiShoppingBag, FiUsers, FiLogOut, FiUser, FiCalendar, FiMapPin, FiPercent, FiImage, FiBell, FiAlertTriangle, FiTruck, FiXCircle, FiFileText, FiStar, FiMessageSquare, FiSettings } from 'react-icons/fi';
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
+import { useAlert } from '../../components/AlertManager';
 import Promotions from './Promotions';
 import Banners from './Banners';
 import Notifications from './Notifications';
@@ -598,18 +599,42 @@ function AdminCategories() {
 // ─── Orders Management (Enhanced with Refund/Tracking) ───
 function AdminOrders() {
     const [orders, setOrders] = useState([]);
+    const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
     const [filter, setFilter] = useState('');
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [refundModal, setRefundModal] = useState(null);
     const [refundForm, setRefundForm] = useState({ refundStatus: 'APPROVED', refundReason: '', refundAmount: '' });
     const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', carrier: '', trackingUrl: '' });
 
-    const loadOrders = useCallback(() => {
-        const params = filter ? `?status=${filter}` : '';
-        API.get(`/orders${params}`).then(res => setOrders(res.data.orders || []));
+    const loadOrders = useCallback((page = 1) => {
+        const params = new URLSearchParams();
+        if (filter) params.append('status', filter);
+        params.append('page', page);
+        params.append('limit', 20);
+        
+        API.get(`/orders?${params.toString()}`)
+            .then(res => {
+                console.log("Orders API Response:", res.data);
+                
+                // Backend returns: { success, message, data: { orders: [...], pagination: {...} } }
+                const ordersData = res.data?.orders;
+                const paginationData = res.data?.pagination;
+                
+                if (Array.isArray(ordersData)) {
+                    setOrders(ordersData);
+                }
+                
+                if (paginationData) {
+                    setPagination(paginationData);
+                }
+            })
+            .catch(err => {
+                console.error('Failed to load orders:', err.response?.data || err.message);
+                setOrders([]);
+            });
     }, [filter]);
 
-    useEffect(() => { loadOrders(); }, [loadOrders]);
+    useEffect(() => { loadOrders(1); }, [loadOrders]);
 
     const updateStatus = async (id, status) => {
         await API.put(`/orders/${id}/status`, { status });
@@ -786,7 +811,7 @@ function AdminOrders() {
                                     <body>
                                         <div class="header">
                                             <div>
-                                                <h1 style="color: #e8751a; margin: 0;">Sangam Namkeen</h1>
+                                                <h1 style="color: #e8751a; margin: 0;">Jain Namkeen</h1>
                                                 <p>Authentic Traditional Taste</p>
                                             </div>
                                             <div style="text-align: right">
@@ -824,7 +849,7 @@ function AdminOrders() {
                                         </table>
                                         <div class="total">Total Amount: ₹${selectedOrder.totalAmount}</div>
                                         <div class="footer">
-                                            <p>Thank you for choosing Sangam Namkeen!</p>
+                                            <p>Thank you for choosing Jain Namkeen!</p>
                                             <p>This is a computer-generated invoice.</p>
                                         </div>
                                         <script>window.print();</script>
@@ -883,6 +908,67 @@ function AdminOrders() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    gap: 12, 
+                    marginTop: 24,
+                    flexWrap: 'wrap'
+                }}>
+                    <button 
+                        className="btn btn-sm btn-secondary" 
+                        onClick={() => loadOrders(pagination.page - 1)}
+                        disabled={pagination.page === 1}
+                    >
+                        ← Previous
+                    </button>
+                    
+                    <div style={{ display: 'flex', gap: 6 }}>
+                        {[...Array(pagination.totalPages)].map((_, i) => {
+                            const pageNum = i + 1;
+                            // Show first page, last page, current page, and pages around current
+                            if (
+                                pageNum === 1 || 
+                                pageNum === pagination.totalPages || 
+                                (pageNum >= pagination.page - 2 && pageNum <= pagination.page + 2)
+                            ) {
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        className={`btn btn-sm ${pagination.page === pageNum ? 'btn-primary' : 'btn-secondary'}`}
+                                        onClick={() => loadOrders(pageNum)}
+                                        style={{ minWidth: 40 }}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            } else if (
+                                pageNum === pagination.page - 3 || 
+                                pageNum === pagination.page + 3
+                            ) {
+                                return <span key={pageNum} style={{ padding: '0 4px' }}>...</span>;
+                            }
+                            return null;
+                        })}
+                    </div>
+                    
+                    <button 
+                        className="btn btn-sm btn-secondary" 
+                        onClick={() => loadOrders(pagination.page + 1)}
+                        disabled={pagination.page === pagination.totalPages}
+                    >
+                        Next →
+                    </button>
+                    
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginLeft: 12 }}>
+                        Page {pagination.page} of {pagination.totalPages} ({pagination.total} total orders)
+                    </span>
+                </div>
+            )}
         </div>
     );
 }
@@ -1345,6 +1431,152 @@ function AdminReviews() {
     );
 }
 
+// ─── Settings Management ───
+function AdminSettings() {
+    const { showAlert } = useAlert();
+    const [loading, setLoading] = useState(false);
+    const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
+    const [razorpayConfigured, setRazorpayConfigured] = useState(false);
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    const loadSettings = async () => {
+        try {
+            const res = await API.get('/settings/public');
+            setOnlinePaymentEnabled(res.data?.onlinePaymentEnabled || false);
+            // If razorpayKeyId is returned, it means Razorpay is configured
+            setRazorpayConfigured(!!res.data?.razorpayKeyId);
+        } catch (err) {
+            console.error('Failed to load settings:', err);
+        }
+    };
+
+    const toggleOnlinePayment = async () => {
+        setLoading(true);
+        try {
+            const res = await API.post('/settings/toggle-online-payment', {
+                enabled: !onlinePaymentEnabled
+            });
+            setOnlinePaymentEnabled(res.data?.enabled || false);
+            showAlert(
+                `Online payment ${res.data?.enabled ? 'enabled' : 'disabled'} successfully!`,
+                'success'
+            );
+        } catch (err) {
+            showAlert(
+                err.response?.data?.message || 'Failed to update setting',
+                'error'
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="animate-fadeIn">
+            <h2 style={{ fontFamily: 'var(--font-heading)', marginBottom: 24 }}>Settings</h2>
+
+            {/* Payment Settings Card */}
+            <div className="card" style={{ padding: 24, marginBottom: 24 }}>
+                <h3 style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    💳 Payment Settings
+                </h3>
+                
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: 16,
+                    background: 'var(--surface-container)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `2px solid ${onlinePaymentEnabled ? 'var(--success)' : 'var(--outline-variant)'}`
+                }}>
+                    <div>
+                        <h4 style={{ marginBottom: 4 }}>Online Payment (Razorpay)</h4>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                            Allow customers to pay online using UPI, Cards, and Net Banking
+                        </p>
+                        <div style={{ 
+                            display: 'inline-block',
+                            padding: '4px 12px',
+                            borderRadius: 4,
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            background: onlinePaymentEnabled ? 'var(--success-container)' : 'var(--warning-container)',
+                            color: onlinePaymentEnabled ? 'var(--on-success-container)' : 'var(--on-warning-container)'
+                        }}>
+                            {onlinePaymentEnabled ? '✓ Enabled' : '⚠ Disabled'}
+                        </div>
+                    </div>
+                    
+                    <button
+                        className={`btn ${onlinePaymentEnabled ? 'btn-danger' : 'btn-success'}`}
+                        onClick={toggleOnlinePayment}
+                        disabled={loading}
+                        style={{ minWidth: 120 }}
+                    >
+                        {loading ? 'Updating...' : onlinePaymentEnabled ? 'Disable' : 'Enable'}
+                    </button>
+                </div>
+
+                {/* Info Box */}
+                <div style={{ 
+                    marginTop: 16,
+                    padding: 12,
+                    background: 'var(--info-container)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.85rem',
+                    color: 'var(--on-info-container)',
+                    borderLeft: '3px solid var(--info)'
+                }}>
+                    <strong>ℹ️ Note:</strong> When disabled, customers will only see Cash on Delivery (COD) option at checkout. 
+                    Make sure Razorpay credentials are configured in environment variables before enabling.
+                </div>
+
+                {/* Razorpay Status */}
+                {razorpayConfigured && (
+                    <div style={{ 
+                        marginTop: 16,
+                        padding: 12,
+                        background: 'var(--success-container)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.85rem',
+                        color: 'var(--on-success-container)',
+                        borderLeft: '3px solid var(--success)'
+                    }}>
+                        ✓ Razorpay credentials are configured and ready to use
+                    </div>
+                )}
+                
+                {!razorpayConfigured && (
+                    <div style={{ 
+                        marginTop: 16,
+                        padding: 12,
+                        background: 'var(--warning-container)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.85rem',
+                        color: 'var(--on-warning-container)',
+                        borderLeft: '3px solid var(--warning)'
+                    }}>
+                        ⚠ Razorpay credentials not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to environment variables.
+                    </div>
+                )}
+            </div>
+
+            {/* Future Settings Placeholder */}
+            <div className="card" style={{ padding: 24, opacity: 0.6 }}>
+                <h3 style={{ marginBottom: 16 }}>🚀 More Settings Coming Soon</h3>
+                <p style={{ color: 'var(--text-muted)' }}>
+                    Additional settings like email notifications, SMS alerts, tax configuration, 
+                    and shipping options will be available in future updates.
+                </p>
+            </div>
+        </div>
+    );
+}
+
 // ─── Admin Layout ───
 export default function AdminPanel() {
     const location = useLocation();
@@ -1363,6 +1595,7 @@ export default function AdminPanel() {
         { path: '/admin/notifications', icon: <FiBell />, label: 'Notifications' },
         { path: '/admin/cms', icon: <FiFileText />, label: 'CMS' },
         { path: '/admin/reviews', icon: <FiMessageSquare />, label: 'Reviews' },
+        { path: '/admin/settings', icon: <FiSettings />, label: 'Settings' },
         { path: '/profile', icon: <FiUser />, label: 'Profile' },
     ];
 
@@ -1394,6 +1627,7 @@ export default function AdminPanel() {
                     <Route path="notifications" element={<Notifications />} />
                     <Route path="reviews" element={<AdminReviews />} />
                     <Route path="cms" element={<CMS />} />
+                    <Route path="settings" element={<AdminSettings />} />
                 </Routes>
             </main>
         </div>

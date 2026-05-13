@@ -92,7 +92,7 @@ export default function CMS() {
                             value={form.content}
                             onChange={e => setForm({ ...form, content: e.target.value })}
                             required
-                            placeholder="<h1>Welcome to Sangam Namkeen</h1><p>Our story begins...</p>"
+                            placeholder="<h1>Welcome to Jain Namkeen</h1><p>Our story begins...</p>"
                             style={{ fontFamily: 'monospace' }}
                         />
                         <small style={{ color: 'var(--text-muted)' }}>You can use standard HTML tags for formatting (h1, h2, p, strong, ul, li).</small>
