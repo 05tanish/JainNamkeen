@@ -50,7 +50,7 @@ const emailWrapper = (content) => `
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sangam Namkeen</title>
+  <title>Jain Namkeen</title>
 </head>
 <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px;">
@@ -61,7 +61,7 @@ const emailWrapper = (content) => `
         <tr>
           <td style="background:#f8f8f8;padding:20px;text-align:center;border-top:1px solid #eee;">
             <p style="color:#999;font-size:12px;margin:0;">
-              © ${new Date().getFullYear()} Sangam Namkeen. All rights reserved.
+              © ${new Date().getFullYear()} Jain Namkeen. All rights reserved.
             </p>
           </td>
         </tr>
@@ -100,7 +100,7 @@ export const sendVerificationEmail = async (email, name, otp) => {
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: email,
-      subject: 'Your Verification OTP — Sangam Namkeen',
+      subject: 'Your Verification OTP — Jain Namkeen',
       html,
     });
     if (error) throw new Error(error.message || 'Resend API error');
@@ -141,7 +141,7 @@ export const sendPasswordResetEmail = async (email, name, otp) => {
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: email,
-      subject: 'Reset Your Password — Sangam Namkeen',
+      subject: 'Reset Your Password — Jain Namkeen',
       html,
     });
     if (error) throw new Error(error.message || 'Resend API error');
@@ -220,9 +220,9 @@ export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
   try {
     const resend = getResend();
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Sangam Namkeen <orders@sangamnamkeen.com>',
+      from: process.env.EMAIL_FROM || 'Jain Namkeen <orders@jainnamkeen.com>',
       to: email,
-      subject: `Order Confirmed #${orderId} — Sangam Namkeen`,
+      subject: `Order Confirmed #${orderId} — Jain Namkeen`,
       html,
     });
     if (error) throw new Error(error.message || 'Resend API error');
