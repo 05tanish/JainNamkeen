@@ -59,7 +59,7 @@ CREATE TABLE "products" (
     "images" JSONB NOT NULL DEFAULT '[]',
     "stock" INTEGER NOT NULL DEFAULT 0,
     "weight" VARCHAR(50) NOT NULL DEFAULT '250g',
-    "brand" VARCHAR(100) NOT NULL DEFAULT 'Sangam Namkeen',
+    "brand" VARCHAR(100) NOT NULL DEFAULT 'Jain Namkeen',
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "totalSold" INTEGER NOT NULL DEFAULT 0,
     "isFeatured" BOOLEAN NOT NULL DEFAULT false,

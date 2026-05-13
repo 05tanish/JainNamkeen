@@ -60,7 +60,7 @@ model Product {
   images             Json      @default("[]")
   stock              Int       @default(0)
   weight             String    @default("250g") @db.VarChar(50)
-  brand              String    @default("Sangam Namkeen") @db.VarChar(100)
+  brand              String    @default("Jain Namkeen") @db.VarChar(100)
   tags               String[]  @default([])
   totalSold          Int       @default(0)
   isFeatured         Boolean   @default(false)
@@ -281,4 +281,16 @@ model Coupon {
 enum DiscountType {
   PERCENTAGE
   FLAT
+}
+
+model Settings {
+  id                    String   @id @default(cuid())
+  key                   String   @unique @db.VarChar(100)
+  value                 String   @db.Text
+  description           String?  @db.Text
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+
+  @@index([key])
+  @@map("settings")
 }
