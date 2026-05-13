@@ -1,42 +1,31 @@
 import 'dotenv/config';
-import { z } from 'zod';
+import { validateEnv, printEnvConfig, performStartupChecks } from './utils/validateEnv.js';
 import { connectDB } from './config/mongodb.js';
 import { connectRedis } from './config/Redis.js';
 import { connectPostgres } from './config/Postgrsedb.js';
 import { app } from './App.js';
 
-const envSchema = z.object({
-    PORT: z.string().default('5000'),
-    MONGODB_URI: z.string().min(10, 'MONGODB_URI is required and must be a valid URI'),
-    DATABASE_URL: z.string().min(10, 'DATABASE_URL is required for PostgreSQL connection'),
-    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters long'),
-    JWT_EXPIRE: z.string().default('7d'),
-    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-    FRONTEND_URL: z.string().optional(),
-    REDIS_URL: z.string().optional(),
-    RATE_LIMIT_WINDOW_MS: z.string().optional(),
-    RATE_LIMIT_MAX_REQUESTS: z.string().optional(),
-});
-
-const envResult = envSchema.safeParse(process.env);
-if (!envResult.success) {
-    process.stderr.write(
-        `❌ Invalid environment variables:\n${JSON.stringify(envResult.error.format(), null, 2)}\n`
-    );
-    process.exit(1);
-}
+// Validate environment variables at startup
+const env = validateEnv();
+printEnvConfig(env);
 
 const { logger } = await import('./utils/logger.js');
 
 const start = async () => {
+    // Connect to databases
     await connectDB();
     await connectPostgres();
     await connectRedis();
 
-    const PORT = process.env.PORT || 5000;
-    const server = app.listen(PORT, () => {
-        logger.info(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    // Perform startup health checks
+    await performStartupChecks();
+
+    const PORT = env.PORT || 5000;
+    const server = app.listen(PORT, "0.0.0.0", () => {
+        logger.info(`🚀 Server running in ${env.NODE_ENV} mode on port ${PORT}`);
         logger.info(`📡 API: http://localhost:${PORT}/api`);
+        logger.info(`📊 Metrics: http://localhost:${PORT}/metrics`);
+        logger.info(`🏥 Health: http://localhost:${PORT}/api/health`);
     });
 
     const shutdown = (signal) => {
