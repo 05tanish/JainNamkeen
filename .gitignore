@@ -66,8 +66,7 @@ junit.xml
 *.launch
 .settings/
 *.sublime-workspace
-.DS_Store
-Thumbs.db
+*.sublime-project
 
 # OS Files
 .DS_Store
@@ -77,6 +76,7 @@ Thumbs.db
 .Trashes
 ehthumbs.db
 Desktop.ini
+Thumbs.db
 
 # Temporary Files
 tmp/
@@ -110,9 +110,11 @@ public/uploads/
 # Workspace Specific
 .apps
 .packages
+.kiro/
 seed.js
 sunla.md
 verify-fixes.sh
+*.sh
 packages/error_fixes_applied.md
 packages/fixes_applied.md
 packages/implementation_plan.md.resolved
@@ -123,11 +125,13 @@ packages/testing_guide.md
 packages/implementation_verification.md
 apps/backend/cookie.txt
 apps/backend/node_modules
-apps/backend/.env.example
-apps/backend/scripts
 apps/backend/scripts/cleanLogs.js
-.vscode
 QUICK_START.md
+docs/BUGS_AND_ISSUES.md
+docs/INTERVIEW_PREP.md
+docs/PRODUCTION_ANALYSIS.md
+docs/*_EXPLAINED.md
+docs/*_OBSERVABILITY.md
 apps/frontend/src/__tests__/design-tokens.test.js
 apps/frontend/src/test-setup.js
 apps/frontend/src/__tests__/preservation.test.jsx

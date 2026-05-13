@@ -53,7 +53,7 @@ export default function Footer() {
 
             <div className="footer-bottom">
                 <div className="container footer-bottom-inner">
-                    <p>© {new Date().getFullYear()} Sangam Namkeen. All rights reserved.</p>
+                    <p>© {new Date().getFullYear()} Jain Namkeen. All rights reserved.</p>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Made with ❤️ in India</p>
                 </div>
             </div>
