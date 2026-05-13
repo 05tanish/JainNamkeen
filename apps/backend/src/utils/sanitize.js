@@ -1,27 +1,31 @@
 /**
- * Sanitize string input to prevent XSS attacks
+ * Sanitize string input to prevent XSS attacks.
+ *
+ * WHY: We escape HTML characters so that if a string ever gets rendered
+ * inside HTML (e.g. in an email template or a server-side rendered page),
+ * it cannot inject malicious tags.
+ *
+ * WHY NOT '/'?: Escaping '/' to '&#x2F;' broke ISO date strings like
+ * "2026-04-21T00:00:00.000Z" and URL paths stored in request bodies.
+ * The '/' character is NOT dangerous in HTML context — only '<', '>', '"',
+ * "'", and '&' are. SQL injection is already prevented by Prisma's
+ * parameterized queries, so we don't need to escape '/' here.
+ *
  * @param {string} input - Input string to sanitize
  * @returns {string} Sanitized string
  */
 export const sanitizeString = (input) => {
     if (typeof input !== 'string') return input;
-    
-    // Escape HTML special characters
-    let sanitized = input
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;')
-        .replace(/\//g, '&#x2F;');
-    
-    // Remove any script tags (double check)
-    sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    
-    // Trim whitespace
-    sanitized = sanitized.trim();
-    
-    return sanitized;
+
+    // Escape only the 5 characters that are dangerous in HTML context.
+    // Order matters: '&' must be first so we don't double-escape later replacements.
+    return input
+        .replace(/&/g, '&amp;')   // & → &amp;  (must be first)
+        .replace(/</g, '&lt;')    // < → &lt;   (closes open tags)
+        .replace(/>/g, '&gt;')    // > → &gt;   (closes open tags)
+        .replace(/"/g, '&quot;')  // " → &quot; (breaks out of attributes)
+        .replace(/'/g, '&#x27;')  // ' → &#x27; (breaks out of attributes)
+        .trim();
 };
 
 /**
