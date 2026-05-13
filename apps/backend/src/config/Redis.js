@@ -16,11 +16,15 @@ export const connectRedis = async () => {
             url: redisUrl,
             socket: {
                 reconnectStrategy: (retries) => {
-                    if (retries > 5) {
-                        logger.warn('Redis: max reconnect attempts reached, disabling Redis');
+                    // Allow more retries with exponential backoff
+                    if (retries > 20) {
+                        logger.error('Redis: max reconnect attempts (20) reached');
                         return false; // stop retrying
                     }
-                    return Math.min(retries * 100, 3000);
+                    // Exponential backoff: 500ms, 1s, 2s, 4s, 8s, ... max 30s
+                    const delay = Math.min(Math.pow(2, retries) * 500, 30000);
+                    logger.info(`Redis reconnect attempt ${retries}, waiting ${delay}ms`);
+                    return delay;
                 },
             },
         });
