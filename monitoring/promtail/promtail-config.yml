@@ -1,0 +1,173 @@
+# =============================================================================
+# PROMTAIL CONFIG — monitoring/promtail/promtail-config.yml
+# =============================================================================
+# Promtail is the log shipper for Loki. It reads log files from disk,
+# adds labels, and sends them to Loki.
+
+# Server configuration
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+# Where to send logs
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+# Positions file — tracks which files have been read
+positions:
+  filename: /tmp/positions.yaml
+
+# Scrape configurations — what log files to read and how to parse them
+scrape_configs:
+
+  # ── Application logs from Winston (JSON format) ──────────────────────────
+  - job_name: app-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: app-logs
+          app: ecommerce-backend
+          __path__: /var/log/app/*.log
+
+    pipeline_stages:
+      # Stage 1: Parse JSON logs from Winston
+      - json:
+          expressions:
+            level: level
+            message: message
+            timestamp: timestamp
+            service: service
+            module: module
+            userId: userId
+            requestId: requestId
+            method: method
+            url: url
+            status: status
+            duration: duration
+            error: error
+            stack: stack
+
+      # Stage 2: Extract labels from parsed JSON
+      - labels:
+          level:
+          service:
+          module:
+          method:
+          status:
+
+      # Stage 3: Set timestamp from parsed JSON (ISO 8601 / RFC3339 format)
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+
+      # Stage 4: Format the output message
+      - output:
+          source: message
+
+  # ── System logs (syslog format) ──────────────────────────────────────────
+  - job_name: system-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: system-logs
+          __path__: /var/log/{syslog,auth.log,kern.log}
+
+    pipeline_stages:
+      # Parse syslog format
+      - regex:
+          expression: '^(?P<timestamp>\w+\s+\d+\s+\d+:\d+:\d+)\s+(?P<hostname>\S+)\s+(?P<service>\S+):\s*(?P<message>.*)'
+
+      - labels:
+          service:
+          hostname:
+
+      - timestamp:
+          source: timestamp
+          format: 'Jan 02 15:04:05'
+
+  # ── Docker container logs ────────────────────────────────────────────────
+  - job_name: docker-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker-logs
+          __path__: /var/lib/docker/containers/*/*.log
+
+    pipeline_stages:
+      # Docker logs are JSON format
+      - json:
+          expressions:
+            log: log
+            stream: stream
+            time: time
+
+      # Extract container ID from file path
+      - regex:
+          source: __path__
+          expression: '/var/lib/docker/containers/(?P<container_id>[^/]+)/.*\.log'
+
+      - labels:
+          stream:
+          container_id:
+
+      - timestamp:
+          source: time
+          format: RFC3339
+
+      # Remove trailing newline from Docker logs
+      - replace:
+          expression: '(\n)$'
+          replace: ''
+
+      - output:
+          source: log
+
+  # ── Nginx access logs ────────────────────────────────────────────────────
+  - job_name: nginx-access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx-access
+          __path__: /var/log/nginx/access.log
+
+    pipeline_stages:
+      # Parse Nginx combined log format
+      - regex:
+          expression: '^(?P<remote_addr>\S+) \S+ \S+ \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<request_uri>\S+) \S+" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+
+      - labels:
+          method:
+          status:
+          remote_addr:
+
+      - timestamp:
+          source: time_local
+          format: '02/Jan/2006:15:04:05 -0700'
+
+      - template:
+          source: output
+          template: '{{ .method }} {{ .request_uri }} {{ .status }} {{ .body_bytes_sent }}B'
+
+  # ── Nginx error logs ─────────────────────────────────────────────────────
+  - job_name: nginx-error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx-error
+          __path__: /var/log/nginx/error.log
+
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<level>\w+)\] (?P<message>.*)'
+
+      - labels:
+          level:
+
+      - timestamp:
+          source: timestamp
+          format: '2006/01/02 15:04:05'

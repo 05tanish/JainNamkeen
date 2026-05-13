@@ -1,0 +1,59 @@
+# =============================================================================
+# GRAFANA DASHBOARD PROVISIONING — monitoring/grafana/provisioning/dashboards/dashboards.yml
+# =============================================================================
+# This file tells Grafana where to find dashboard JSON files and how to load them.
+# Dashboards are automatically imported when Grafana starts.
+#
+# WHY PROVISION DASHBOARDS?
+# - Version control: Dashboards are stored as code
+# - Consistency: Same dashboards across environments
+# - Automation: No manual dashboard creation
+# - Backup: Dashboards won't be lost if Grafana data is deleted
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  # ── Application dashboards ──────────────────────────────────────────────────
+  - name: 'ecommerce-dashboards'
+    # Organization ID (1 = default org)
+    orgId: 1
+    # Folder name in Grafana UI
+    folder: 'E-commerce Monitoring'
+    # Folder UID (unique identifier)
+    folderUid: 'ecommerce'
+    # Dashboard type
+    type: file
+    # Disable deletion through UI (keep dashboards as code)
+    disableDeletion: false
+    # Update imported dashboards if JSON changes
+    updateIntervalSeconds: 10
+    # Allow editing through UI (changes won't be saved to file)
+    allowUiUpdates: true
+    options:
+      # Path to dashboard JSON files (inside container)
+      path: /var/lib/grafana/dashboards/ecommerce
+
+  # ── System dashboards ───────────────────────────────────────────────────────
+  - name: 'system-dashboards'
+    orgId: 1
+    folder: 'System Monitoring'
+    folderUid: 'system'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/system
+
+  # ── Infrastructure dashboards ───────────────────────────────────────────────
+  - name: 'infrastructure-dashboards'
+    orgId: 1
+    folder: 'Infrastructure'
+    folderUid: 'infrastructure'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/infrastructure

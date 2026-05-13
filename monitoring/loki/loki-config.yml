@@ -1,0 +1,105 @@
+# =============================================================================
+# LOKI CONFIG — monitoring/loki/loki-config.yml
+# =============================================================================
+# Loki is a log aggregation system. Think of it as a time-series database
+# for logs instead of metrics. It doesn't index the full text of logs
+# (like Elasticsearch) — instead, it indexes labels and stores log lines
+# compressed. This makes it much lighter and faster for cloud-native apps.
+#
+# KEY CONCEPTS:
+# - Labels: key-value pairs that identify log streams (app=backend, level=error)
+# - Streams: a unique combination of labels
+# - Chunks: compressed log data for a time range
+# =============================================================================
+
+# Server configuration
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+# Ingester configuration — handles incoming log streams
+ingester:
+  wal:
+    enabled: true
+    dir: /loki/wal
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+  chunk_idle_period: 1h       # How long to wait before flushing chunks
+  max_chunk_age: 1h           # Maximum age of a chunk before flushing
+  chunk_target_size: 1048576  # Target chunk size (1MB)
+  chunk_retain_period: 30s    # How long to keep chunks in memory after flushing
+
+# Schema configuration — how Loki stores data
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+# Storage configuration
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki/boltdb-shipper-active
+    cache_location: /loki/boltdb-shipper-cache
+    cache_ttl: 24h
+    shared_store: filesystem
+  filesystem:
+    directory: /loki/chunks
+
+# Compactor configuration — cleans up old data
+compactor:
+  working_directory: /loki/boltdb-shipper-compactor
+  shared_store: filesystem
+
+# Limits configuration — prevent abuse and resource exhaustion
+limits_config:
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h  # 1 week
+  ingestion_rate_mb: 16             # Max ingestion rate per stream (16MB/s)
+  ingestion_burst_size_mb: 32       # Max burst size (32MB)
+  max_streams_per_user: 10000       # Max number of streams per tenant
+  max_line_size: 256000             # Max size of a single log line (256KB)
+
+# Chunk store configuration
+chunk_store_config:
+  max_look_back_period: 0s
+
+# Table manager configuration — manages index tables
+table_manager:
+  retention_deletes_enabled: true
+  retention_period: 168h  # Keep logs for 1 week (adjust based on your needs)
+
+# Ruler configuration — for alerting rules (optional)
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules
+  alertmanager_url: http://localhost:9093
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
+
+# Frontend configuration — query frontend for better performance
+frontend:
+  max_outstanding_per_tenant: 256
+  compress_responses: true
+
+# Query range configuration
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100

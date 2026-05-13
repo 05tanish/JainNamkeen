@@ -1,0 +1,116 @@
+# Prometheus Configuration
+# Scrapes metrics from application endpoints and stores as time-series data
+
+global:
+  # How often to scrape targets by default
+  scrape_interval: 15s
+  # How often to evaluate alerting rules
+  evaluation_interval: 15s
+  # Add these labels to all metrics
+  external_labels:
+    monitor: 'ecommerce-monitor'
+    environment: 'development'
+
+# Alerting rules configuration (optional)
+rule_files:
+  - "alert_rules.yml"
+
+# Alertmanager configuration (for sending alerts)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # Uncomment if you want to add Alertmanager
+          # - alertmanager:9093
+
+# ── Scrape configurations ────────────────────────────────────────────────────
+# Define what endpoints to scrape for metrics
+scrape_configs:
+
+  # ── Prometheus itself ─────────────────────────────────────────────────────
+  # Prometheus exposes its own metrics at /metrics
+  # Useful for monitoring Prometheus performance
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # ── Your Node.js application ──────────────────────────────────────────────
+  # Your app should expose metrics at /metrics endpoint
+  # We'll add this endpoint to your Express app
+  - job_name: 'ecommerce-backend'
+    static_configs:
+      - targets: ['ecommerce-backend:5000']  # Backend container name and port
+    scrape_interval: 15s
+    metrics_path: /metrics
+    # Add labels to identify this service
+    relabel_configs:
+      - target_label: service
+        replacement: backend
+      - target_label: app
+        replacement: ecommerce
+
+  # ── cAdvisor — Container metrics ──────────────────────────────────────────
+  # cAdvisor exposes container resource usage metrics
+  # CPU, memory, network, disk for all Docker containers
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # ── Node Exporter — Host system metrics ───────────────────────────────────
+  # System-level metrics: CPU, memory, disk, network interfaces
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # ── Loki metrics ──────────────────────────────────────────────────────────
+  # Monitor Loki itself — ingestion rate, query performance, etc.
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # ── Grafana metrics ───────────────────────────────────────────────────────
+  # Monitor Grafana performance — dashboard load times, user sessions, etc.
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # ── BullMQ Worker metrics ─────────────────────────────────────────────────
+  # Monitor background job processing — queue depth, job duration, failures
+  - job_name: 'ecommerce-worker'
+    static_configs:
+      - targets: ['worker:9091']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    # Add labels to identify this service
+    relabel_configs:
+      - target_label: service
+        replacement: worker
+      - target_label: app
+        replacement: ecommerce
+
+# ── Storage configuration ─────────────────────────────────────────────────────
+# How long to keep metrics and how to store them
+storage:
+  tsdb:
+    # Keep metrics for 30 days (adjust based on your needs)
+    retention.time: 30d
+    # Compress old data to save disk space
+    retention.size: 10GB
+
+# ── Remote write configuration (optional) ─────────────────────────────────────
+# Send metrics to external systems like Grafana Cloud, AWS CloudWatch, etc.
+# remote_write:
+#   - url: "https://prometheus-prod-10-prod-us-central-0.grafana.net/api/prom/push"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-api-key"

@@ -1,0 +1,427 @@
+# =============================================================================
+# Prometheus Alert Rules
+# =============================================================================
+# Define alerting rules for monitoring system health and performance
+# Alerts are evaluated every 15 seconds (defined in prometheus.yml)
+
+groups:
+  # ── Application Health Alerts ──────────────────────────────────────────────
+  - name: application_health
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          impact: "Users are experiencing errors"
+          action: "Check application logs and error tracking (Sentry)"
+
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_ms_bucket[5m])) by (le)
+          ) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}ms (threshold: 1000ms)"
+          impact: "Application is slow for users"
+          action: "Check database queries, cache hit rate, and system resources"
+
+      - alert: ApplicationDown
+        expr: up{job="ecommerce-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "Application is down"
+          description: "Backend service is not responding"
+          impact: "Complete service outage"
+          action: "Check container status: docker-compose ps"
+
+  # ── Database Alerts ────────────────────────────────────────────────────────
+  - name: database_health
+    interval: 30s
+    rules:
+      - alert: PostgreSQLDown
+        expr: app_health{component="database"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgres
+        annotations:
+          summary: "PostgreSQL connection lost"
+          description: "Cannot connect to PostgreSQL database"
+          impact: "Application cannot read/write data"
+          action: "Check PostgreSQL container: docker-compose logs postgres"
+
+      - alert: MongoDBDown
+        expr: app_health{component="mongodb"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: mongodb
+        annotations:
+          summary: "MongoDB connection lost"
+          description: "Cannot connect to MongoDB database"
+          impact: "Audit logs and notifications unavailable"
+          action: "Check MongoDB container: docker-compose logs mongodb"
+
+      - alert: RedisDown
+        expr: app_health{component="redis"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis connection lost"
+          description: "Cannot connect to Redis cache"
+          impact: "Caching disabled, authentication may fail"
+          action: "Check Redis container: docker-compose logs redis"
+
+      - alert: HighDatabaseQueryTime
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(db_query_duration_ms_bucket[5m])) by (le)
+          ) > 500
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query time is {{ $value }}ms (threshold: 500ms)"
+          impact: "Application performance degraded"
+          action: "Check slow query logs and optimize queries"
+
+      - alert: HighDatabaseConnections
+        expr: db_connections_active > 150
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High number of database connections"
+          description: "Active connections: {{ $value }} (threshold: 150)"
+          impact: "May hit connection limit soon"
+          action: "Check for connection leaks or increase pool size"
+
+  # ── System Resource Alerts ─────────────────────────────────────────────────
+  - name: system_resources
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          (
+            sum(rate(container_cpu_usage_seconds_total{name="ecommerce-backend"}[5m]))
+            /
+            sum(container_spec_cpu_quota{name="ecommerce-backend"} / container_spec_cpu_period{name="ecommerce-backend"})
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+          impact: "Application may become slow"
+          action: "Check for CPU-intensive operations or scale horizontally"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            container_memory_usage_bytes{name="ecommerce-backend"}
+            /
+            container_spec_memory_limit_bytes{name="ecommerce-backend"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 85%)"
+          impact: "Application may crash due to OOM"
+          action: "Check for memory leaks or increase memory limit"
+
+      - alert: HighDiskUsage
+        expr: |
+          (
+            sum(container_fs_usage_bytes{name=~"ecommerce.*"})
+            /
+            sum(container_fs_limit_bytes{name=~"ecommerce.*"})
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} (threshold: 85%)"
+          impact: "May run out of disk space"
+          action: "Clean up old logs, images, or increase disk size"
+
+  # ── Business Metrics Alerts ────────────────────────────────────────────────
+  - name: business_metrics
+    interval: 1m
+    rules:
+      - alert: LowOrderRate
+        expr: rate(orders_total[1h]) < 0.01
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Low order rate detected"
+          description: "Order rate is {{ $value }} orders/sec (threshold: 0.01)"
+          impact: "Potential revenue loss"
+          action: "Check if there are issues with checkout flow"
+
+      - alert: HighOrderCancellationRate
+        expr: |
+          (
+            rate(orders_total{status="CANCELLED"}[1h])
+            /
+            rate(orders_total[1h])
+          ) > 0.2
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "High order cancellation rate"
+          description: "Cancellation rate is {{ $value | humanizePercentage }} (threshold: 20%)"
+          impact: "Customer satisfaction issue"
+          action: "Investigate reasons for cancellations"
+
+      - alert: LowPaymentSuccessRate
+        expr: |
+          (
+            rate(orders_total{payment_status="PAID"}[1h])
+            /
+            rate(orders_total[1h])
+          ) < 0.8
+        for: 30m
+        labels:
+          severity: critical
+          component: payment
+        annotations:
+          summary: "Low payment success rate"
+          description: "Payment success rate is {{ $value | humanizePercentage }} (threshold: 80%)"
+          impact: "Revenue loss and poor customer experience"
+          action: "Check payment gateway status and logs"
+
+  # ── Cache Performance Alerts ───────────────────────────────────────────────
+  - name: cache_performance
+    interval: 30s
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            rate(cache_hits_total[5m])
+            /
+            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+          ) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (threshold: 70%)"
+          impact: "Increased database load and slower response times"
+          action: "Review caching strategy and TTL values"
+
+      - alert: HighCacheEvictionRate
+        expr: rate(cache_evictions_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "High cache eviction rate"
+          description: "Cache eviction rate is {{ $value }} evictions/sec (threshold: 10)"
+          impact: "Cache is too small or TTL is too short"
+          action: "Increase cache size or review caching strategy"
+
+  # ── Rate Limiting Alerts ───────────────────────────────────────────────────
+  - name: rate_limiting
+    interval: 30s
+    rules:
+      - alert: HighRateLimitHitRate
+        expr: rate(rate_limit_hits_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High rate limit hit rate"
+          description: "Rate limit hits: {{ $value }} hits/sec (threshold: 10)"
+          impact: "Potential DDoS attack or misconfigured client"
+          action: "Check IP addresses hitting rate limits and consider blocking"
+
+  # ── Monitoring Stack Health ────────────────────────────────────────────────
+  - name: monitoring_health
+    interval: 30s
+    rules:
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus monitoring service is not responding"
+          impact: "No metrics collection"
+          action: "Check Prometheus container: docker-compose logs prometheus"
+
+      - alert: GrafanaDown
+        expr: up{job="grafana"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Grafana is down"
+          description: "Grafana dashboard service is not responding"
+          impact: "Cannot view dashboards"
+          action: "Check Grafana container: docker-compose logs grafana"
+
+      - alert: LokiDown
+        expr: up{job="loki"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Loki is down"
+          description: "Loki log aggregation service is not responding"
+          impact: "No log collection"
+          action: "Check Loki container: docker-compose logs loki"
+
+  # ── Security Alerts ────────────────────────────────────────────────────────
+  - name: security
+    interval: 30s
+    rules:
+      - alert: HighFailedLoginAttempts
+        expr: rate(auth_failed_attempts_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High failed login attempts"
+          description: "Failed login attempts: {{ $value }} attempts/sec (threshold: 5)"
+          impact: "Potential brute force attack"
+          action: "Check audit logs for suspicious IP addresses"
+
+      - alert: UnauthorizedAccessAttempts
+        expr: rate(http_requests_total{status_code="401"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High unauthorized access attempts"
+          description: "Unauthorized requests: {{ $value }} requests/sec (threshold: 10)"
+          impact: "Potential security breach attempt"
+          action: "Check audit logs and consider IP blocking"
+
+  # ── Worker Health Alerts ───────────────────────────────────────────────────
+  - name: worker_health
+    interval: 30s
+    rules:
+      - alert: BullMQWorkerDown
+        expr: up{job="ecommerce-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: worker
+        annotations:
+          summary: "BullMQ worker is down"
+          description: "Background job processing has stopped"
+          impact: "Order confirmation emails and background tasks not processing"
+          action: "Check worker logs: docker-compose logs worker"
+
+      - alert: HighQueueDepth
+        expr: bullmq_queue_depth{status="waiting"} > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Job queue is backing up"
+          description: "{{ $value }} jobs waiting in queue (threshold: 100)"
+          impact: "Background tasks are delayed"
+          action: "Check worker performance and consider scaling: docker-compose up -d --scale worker=2"
+
+      - alert: HighJobFailureRate
+        expr: |
+          (
+            sum(rate(bullmq_jobs_processed_total{status="failed"}[5m]))
+            /
+            sum(rate(bullmq_jobs_processed_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "High job failure rate"
+          description: "{{ $value | humanizePercentage }} of jobs are failing (threshold: 10%)"
+          impact: "Background tasks failing frequently"
+          action: "Check worker error logs: docker-compose logs worker | grep ERROR"
+
+      - alert: SlowJobProcessing
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(bullmq_job_duration_ms_bucket[5m])) by (le, job_type)
+          ) > 30000
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Slow job processing detected"
+          description: "95th percentile job duration is {{ $value }}ms (threshold: 30000ms)"
+          impact: "Background tasks taking too long"
+          action: "Check worker performance and external service latency"
+
+      - alert: WorkerNotProcessingJobs
+        expr: rate(bullmq_jobs_processed_total[5m]) == 0 and bullmq_queue_depth{status="waiting"} > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: worker
+        annotations:
+          summary: "Worker not processing jobs"
+          description: "Worker is running but not processing jobs from queue"
+          impact: "Background tasks stuck"
+          action: "Restart worker: docker-compose restart worker"
+
+      - alert: WorkerInactive
+        expr: bullmq_worker_active{queue="order-jobs"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: worker
+        annotations:
+          summary: "Worker marked as inactive"
+          description: "Worker process is not active"
+          impact: "No background job processing"
+          action: "Check worker status: docker-compose ps worker"

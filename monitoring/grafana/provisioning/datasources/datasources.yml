@@ -1,0 +1,69 @@
+# =============================================================================
+# GRAFANA DATASOURCES — monitoring/grafana/provisioning/datasources/datasources.yml
+# =============================================================================
+# This file automatically configures data sources in Grafana when it starts.
+# No need to manually add Prometheus and Loki through the UI.
+#
+# WHAT ARE DATASOURCES?
+# - Prometheus: For metrics (CPU, memory, HTTP requests, custom business metrics)
+# - Loki: For logs (application logs, system logs, container logs)
+# - Both are queryable from Grafana dashboards
+# =============================================================================
+
+apiVersion: 1
+
+# List of data sources to insert/update
+datasources:
+  # ── Prometheus — Metrics datasource ─────────────────────────────────────────
+  - name: Prometheus
+    type: prometheus
+    # Access mode: proxy (Grafana queries Prometheus) vs direct (browser queries)
+    access: proxy
+    # URL where Prometheus is running (inside Docker network)
+    url: http://prometheus:9090
+    # Make this the default datasource for metrics
+    isDefault: true
+    # Enable for alerting rules
+    jsonData:
+      httpMethod: POST
+      # Query timeout
+      queryTimeout: 60s
+      # Default query step (resolution)
+      timeInterval: 15s
+    # No authentication needed for local Prometheus
+    basicAuth: false
+    # Version (1 = legacy, 2 = current)
+    version: 1
+    # Make it read-only to prevent accidental changes
+    editable: false
+
+  # ── Loki — Logs datasource ──────────────────────────────────────────────────
+  - name: Loki
+    type: loki
+    access: proxy
+    # URL where Loki is running (inside Docker network)
+    url: http://loki:3100
+    # Don't make this default (Prometheus is default)
+    isDefault: false
+    jsonData:
+      # Maximum number of lines to return in a query
+      maxLines: 1000
+      # Timeout for log queries
+      timeout: 60s
+    basicAuth: false
+    version: 1
+    editable: false
+
+  # ── Example: External datasource (commented out) ────────────────────────────
+  # If you want to connect to external services like Grafana Cloud, AWS CloudWatch, etc.
+  # - name: Grafana Cloud Prometheus
+  #   type: prometheus
+  #   access: proxy
+  #   url: https://prometheus-prod-10-prod-us-central-0.grafana.net/api/prom
+  #   basicAuth: true
+  #   basicAuthUser: your-username
+  #   secureJsonData:
+  #     basicAuthPassword: your-api-key
+  #   isDefault: false
+  #   version: 1
+  #   editable: false
