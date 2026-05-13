@@ -103,7 +103,7 @@ export default function Register() {
                             Create account
                         </h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
-                            Join the Sangam Namkeen family
+                            Join the Jain Namkeen family
                         </p>
                     </div>
 

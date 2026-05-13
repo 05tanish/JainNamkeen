@@ -79,7 +79,7 @@ export default function Login() {
                             Welcome back
                         </h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
-                            Sign in to your Sangam Namkeen account
+                            Sign in to your Jain Namkeen account
                         </p>
                     </div>
 
