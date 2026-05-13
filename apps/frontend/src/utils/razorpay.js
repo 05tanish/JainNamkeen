@@ -37,7 +37,7 @@ export const initiatePayment = async (orderId, onSuccess, onFailure) => {
             key: data.keyId,
             amount: data.amount,
             currency: data.currency,
-            name: 'Sangam Namkeen',
+            name: 'Jain Namkeen',
             description: `Order Payment - ${orderId}`,
             image: '/logo.png', // Your logo
             order_id: data.razorpayOrderId,

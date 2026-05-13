@@ -89,7 +89,20 @@ export const verifyPayment = async (orderId, paymentData) => {
                 .update(body.toString())
                 .digest('hex');
 
-            const isValid = expectedSignature === razorpay_signature;
+            // WHY timingSafeEqual instead of ===?
+            // Regular string comparison (===) short-circuits on the FIRST mismatched
+            // character — an attacker can measure response time to guess the signature
+            // one character at a time (timing attack).
+            // crypto.timingSafeEqual always takes the SAME time regardless of where
+            // strings differ, making timing-based guessing impossible.
+            // Both buffers must be the same byte length — if lengths differ, the
+            // signature is obviously wrong, so we reject immediately.
+            const expectedBuf = Buffer.from(expectedSignature, 'hex');
+            const receivedBuf = Buffer.from(razorpay_signature,  'hex');
+
+            const isValid =
+                expectedBuf.length === receivedBuf.length &&
+                crypto.timingSafeEqual(expectedBuf, receivedBuf);
 
             if (!isValid) {
                 logger.warn(`Invalid payment signature for order: ${orderId}`);
@@ -243,17 +256,36 @@ export const handleWebhook = async (body, signature) => {
     }
 
 export const handlePaymentCaptured = async (payload) => {
-        const orderId = payload.notes.orderId;
-        if (orderId) {
-            await prisma.order.update({
-                where: { id: orderId },
-                data: {
-                    paymentStatus: 'PAID',
-                    paidAt: new Date()
-                }
-            });
-            logger.info(`Payment captured for order: ${orderId}`);
+        // payload.notes.orderId is the internal order ID we stored when creating
+        // the Razorpay order (see createPaymentOrder → notes.orderId).
+        const orderId = payload.notes?.orderId;
+        if (!orderId) {
+            logger.warn('Webhook payment.captured: missing orderId in notes');
+            return;
         }
+
+        // IDEMPOTENCY CHECK — Razorpay retries webhooks up to 3 times if your
+        // server doesn't respond with 200. Without this check, we'd try to update
+        // an already-PAID order on every retry, which is harmless but noisy.
+        const existing = await prisma.order.findUnique({ where: { id: orderId } });
+        if (!existing) {
+            logger.warn(`Webhook: order ${orderId} not found`);
+            return;
+        }
+        if (existing.paymentStatus === 'PAID') {
+            logger.info(`Webhook: order ${orderId} already marked PAID — skipping`);
+            return; // idempotent — safe to call multiple times
+        }
+
+        await prisma.order.update({
+            where: { id: orderId },
+            data: {
+                paymentStatus: 'PAID',
+                razorpayPaymentId: payload.id, // store the actual Razorpay payment ID
+                paidAt: new Date()
+            }
+        });
+        logger.info(`Webhook: payment captured for order ${orderId}, payment ${payload.id}`);
     }
 
 export const handlePaymentFailed = async (payload) => {

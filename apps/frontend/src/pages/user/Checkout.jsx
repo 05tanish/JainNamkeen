@@ -12,6 +12,7 @@ export default function Checkout() {
     const { items, cartTotal, clearCart } = useCart();
     const { showAlert } = useAlert();
     const [loading, setLoading] = useState(false);
+    const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -48,7 +49,15 @@ export default function Checkout() {
     }, []);
 
     useEffect(() => {
+        // Fetch active coupons
         API.get('/coupons/active').then(res => setActiveCoupons(res.data)).catch(() => {});
+        
+        // Fetch settings to check if online payment is enabled
+        API.get('/settings/public').then(res => {
+            setOnlinePaymentEnabled(res.data?.onlinePaymentEnabled || false);
+        }).catch(() => {
+            setOnlinePaymentEnabled(false);
+        });
     }, []);
 
     // Memoize delivery charge calculation
@@ -238,18 +247,93 @@ export default function Checkout() {
 
                     <div className="card" style={{ padding: 24, marginBottom: 24 }}>
                         <h3 style={{ marginBottom: 16 }}>Payment Method</h3>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', marginBottom: 8, background: form.paymentMethod === 'online' ? 'var(--primary-glow)' : 'transparent', border: form.paymentMethod === 'online' ? '2px solid var(--primary)' : '1px solid var(--outline-variant)' }}>
-                            <input type="radio" name="payment" value="online" checked={form.paymentMethod === 'online'}
-                                onChange={() => setForm({ ...form, paymentMethod: 'online' })} />
-                            <span>💳 Pay Online (Razorpay) - Recommended</span>
+                        
+                        {/* Online Payment - Conditionally Enabled/Disabled */}
+                        <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 10, 
+                            cursor: onlinePaymentEnabled ? 'pointer' : 'not-allowed', 
+                            padding: 12, 
+                            borderRadius: 'var(--radius-sm)', 
+                            marginBottom: 8, 
+                            background: onlinePaymentEnabled && form.paymentMethod === 'online' ? 'var(--primary-glow)' : 'var(--surface-container)', 
+                            border: onlinePaymentEnabled && form.paymentMethod === 'online' ? '2px solid var(--primary)' : '1px solid var(--outline-variant)',
+                            opacity: onlinePaymentEnabled ? 1 : 0.6,
+                            position: 'relative'
+                        }}>
+                            <input 
+                                type="radio" 
+                                name="payment" 
+                                value="online" 
+                                checked={form.paymentMethod === 'online'}
+                                disabled={!onlinePaymentEnabled}
+                                onChange={() => onlinePaymentEnabled && setForm({ ...form, paymentMethod: 'online' })}
+                                style={{ cursor: onlinePaymentEnabled ? 'pointer' : 'not-allowed' }}
+                            />
+                            <span style={{ textDecoration: onlinePaymentEnabled ? 'none' : 'line-through' }}>
+                                💳 Pay Online (Razorpay)
+                            </span>
+                            {!onlinePaymentEnabled && (
+                                <span style={{ 
+                                    marginLeft: 'auto', 
+                                    fontSize: '0.75rem', 
+                                    background: 'var(--warning-container)', 
+                                    color: 'var(--on-warning-container)', 
+                                    padding: '4px 8px', 
+                                    borderRadius: 4,
+                                    fontWeight: 600
+                                }}>
+                                    Coming Soon
+                                </span>
+                            )}
                         </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 12, borderRadius: 'var(--radius-sm)', background: form.paymentMethod === 'cod' ? 'var(--primary-glow)' : 'transparent', border: form.paymentMethod === 'cod' ? '2px solid var(--primary)' : '1px solid var(--outline-variant)' }}>
-                            <input type="radio" name="payment" value="cod" checked={form.paymentMethod === 'cod'}
-                                onChange={() => setForm({ ...form, paymentMethod: 'cod' })} />
+                        
+                        {/* COD - Always Active */}
+                        <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 10, 
+                            cursor: 'pointer', 
+                            padding: 12, 
+                            borderRadius: 'var(--radius-sm)', 
+                            background: form.paymentMethod === 'cod' ? 'var(--primary-glow)' : 'transparent', 
+                            border: form.paymentMethod === 'cod' ? '2px solid var(--primary)' : '1px solid var(--outline-variant)' 
+                        }}>
+                            <input 
+                                type="radio" 
+                                name="payment" 
+                                value="cod" 
+                                checked={form.paymentMethod === 'cod'}
+                                onChange={() => setForm({ ...form, paymentMethod: 'cod' })} 
+                            />
                             <span>💵 Cash on Delivery (COD)</span>
                         </label>
-                        {form.paymentMethod === 'online' && (
-                            <div style={{ marginTop: 12, padding: 12, background: 'var(--success-container)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', color: 'var(--on-success-container)' }}>
+                        
+                        {/* Info Messages */}
+                        {!onlinePaymentEnabled && (
+                            <div style={{ 
+                                marginTop: 12, 
+                                padding: 12, 
+                                background: 'var(--info-container)', 
+                                borderRadius: 'var(--radius-sm)', 
+                                fontSize: '0.85rem', 
+                                color: 'var(--on-info-container)',
+                                borderLeft: '3px solid var(--info)'
+                            }}>
+                                ℹ️ Online payment will be available soon. Currently, only Cash on Delivery is accepted.
+                            </div>
+                        )}
+                        
+                        {onlinePaymentEnabled && form.paymentMethod === 'online' && (
+                            <div style={{ 
+                                marginTop: 12, 
+                                padding: 12, 
+                                background: 'var(--success-container)', 
+                                borderRadius: 'var(--radius-sm)', 
+                                fontSize: '0.85rem', 
+                                color: 'var(--on-success-container)' 
+                            }}>
                                 ✓ Secure payment via Razorpay • UPI, Cards, Net Banking supported
                             </div>
                         )}
