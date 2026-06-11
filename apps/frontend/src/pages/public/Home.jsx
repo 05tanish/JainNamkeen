@@ -52,19 +52,22 @@ export default function Home() {
                     </div>
                     <div className="collections-grid">
                         {categories.map((cat, idx) => {
-                            // Use namkeen/snacks images from Unsplash
+                            // Use placeholder images with fallback
                             const imageUrls = [
-                                'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=400&fit=crop', // Indian snacks
-                                'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=400&fit=crop', // Traditional Indian food
-                                'https://images.unsplash.com/photo-1596040033229-a0b3b7d1b8b8?w=400&h=400&fit=crop'  // Indian sweets
+                                cat.image || 'https://via.placeholder.com/400x400/a04100/ffffff?text=Snacks',
+                                cat.image || 'https://via.placeholder.com/400x400/7a3200/ffffff?text=Traditional',
+                                cat.image || 'https://via.placeholder.com/400x400/8b4513/ffffff?text=Sweets'
                             ];
                             return (
                                 <Link to={`/products?category=${cat.id}`} key={cat.id} className="collection-card">
                                     <div className="collection-image">
                                         <img 
-                                            src={imageUrls[idx] || imageUrls[0]} 
+                                            src={cat.image || imageUrls[idx % imageUrls.length]} 
                                             alt={cat.name}
-                                            onError={(e) => { e.target.onerror = null; e.target.style.display='none'; e.target.parentElement.style.background='linear-gradient(135deg,#a04100 0%,#7a3200 100%)'; e.target.parentElement.innerHTML='<span style="font-size:3rem;display:flex;align-items:center;justify-content:center;height:100%">🍿</span>'; }}
+                                            onError={(e) => { 
+                                                e.target.onerror = null; 
+                                                e.target.src = `https://via.placeholder.com/400x400/a04100/ffffff?text=${encodeURIComponent(cat.name)}`; 
+                                            }}
                                         />
                                     </div>
                                     <h3>{cat.name}</h3>
@@ -83,10 +86,20 @@ export default function Home() {
                     <div className="heritage-content">
                         <div className="heritage-images">
                             <div className="heritage-image" style={{ transform: 'translateY(32px)' }}>
-                                <img src="https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&h=500&fit=crop&q=80" alt="Traditional Udaipur market stall" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
+                                <img 
+                                    src="https://via.placeholder.com/600x500/a04100/ffffff?text=Traditional+Market" 
+                                    alt="Traditional Udaipur market stall" 
+                                    style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }}
+                                    onError={(e) => { e.target.style.background = '#a04100'; }}
+                                />
                             </div>
                             <div className="heritage-image">
-                                <img src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=600&h=500&fit=crop&q=80" alt="Rajasthani palace carvings" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }} />
+                                <img 
+                                    src="https://via.placeholder.com/600x500/7a3200/ffffff?text=Heritage+Kitchen" 
+                                    alt="Rajasthani palace carvings" 
+                                    style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }}
+                                    onError={(e) => { e.target.style.background = '#7a3200'; }}
+                                />
                             </div>
                         </div>
                         <div className="heritage-text">
