@@ -78,12 +78,22 @@ export const sanitizeQuery = (req, res, next) => {
 };
 
 /**
- * Middleware to sanitize all inputs
- * Note: req.query is read-only in Express, so we skip it
+ * Middleware to sanitize all inputs — body, query params, and route params.
+ *
+ * NOTE: req.query IS mutable in Express despite common misconceptions.
+ * Express parses the query string into a plain object assigned to req.query,
+ * which can be freely reassigned. Skipping it would expose search, filter,
+ * and pagination endpoints to XSS if values are ever echoed back to the user.
  */
 export const sanitizeAll = (req, res, next) => {
     if (req.body) req.body = sanitizeInput(req.body);
-    // Skip req.query as it's read-only in Express
+    if (req.query && typeof req.query === 'object') {
+        // Reassign sanitized values key-by-key to preserve the object reference
+        // (some middleware may hold a reference to req.query)
+        const sanitized = sanitizeInput(req.query);
+        for (const key of Object.keys(req.query)) delete req.query[key];
+        Object.assign(req.query, sanitized);
+    }
     if (req.params) req.params = sanitizeInput(req.params);
     next();
 };

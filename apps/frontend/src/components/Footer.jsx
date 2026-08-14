@@ -10,7 +10,7 @@ export default function Footer() {
                     <div className="footer-brand">
                         <div className="footer-logo">
                             <span>🍿</span>
-                            <span>Sangam <strong>Namkeen</strong></span>
+                            <span>Jain <strong>Namkeen</strong></span>
                         </div>
                         <p>Handcrafted with love, seasoned with tradition. Authentic Indian namkeen & sweets delivered fresh to your doorstep.</p>
                         <div className="footer-socials">
@@ -44,8 +44,8 @@ export default function Footer() {
                         <a href="tel:+919876543210" className="footer-contact-item">
                             <FiPhone size={14} /> +91 98765 43210
                         </a>
-                        <a href="mailto:info@sangamnamkeen.com" className="footer-contact-item">
-                            <FiMail size={14} /> info@sangamnamkeen.com
+                        <a href="mailto:info@jainnamkeen.com" className="footer-contact-item">
+                            <FiMail size={14} /> info@jainnamkeen.com
                         </a>
                     </div>
                 </div>

@@ -157,3 +157,6 @@ secrets/
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+#docs
+docs

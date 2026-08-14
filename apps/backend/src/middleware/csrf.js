@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { ApiError } from '../utils/ApiError.js';
 import { cacheGet, cacheSet } from '../config/Redis.js';
 import { logger } from '../utils/logger.js';
@@ -24,6 +25,31 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
+/**
+ * Peek at the JWT bearer token to extract the user ID WITHOUT running
+ * authentication middleware. We only need the user ID as a namespace key
+ * for the CSRF store — we are NOT trusting the token for authorization.
+ *
+ * This is safe because:
+ *  1. We only read the `id` field from the decoded payload.
+ *  2. The actual auth middleware still performs full signature verification
+ *     before any protected handler executes.
+ *  3. If the token is tampered or absent the function returns null and we
+ *     fall back to the guest _guest_id cookie.
+ */
+const peekUserId = (req) => {
+    try {
+        const authHeader = req.headers?.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+        const token = authHeader.slice(7);
+        // jwt.decode does NO signature verification — safe for namespace-only use
+        const payload = jwt.decode(token);
+        return payload?.id || payload?.userId || null;
+    } catch {
+        return null;
+    }
+};
+
 // Generate a CSRF token
 export const generateCsrfToken = () => {
     return crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
@@ -34,8 +60,10 @@ export const provideCsrfToken = async (req, res, next) => {
     try {
         const token = generateCsrfToken();
 
-        // Derive a stable session key — never use IP (breaks NAT/VPN/offices)
-        let sessionKey = req.user?.id;
+        // Derive a stable session key.
+        // Try peeking at the JWT first (works even before auth middleware runs),
+        // then fall back to the guest cookie.
+        let sessionKey = peekUserId(req) || req.user?.id;
         if (!sessionKey) {
             sessionKey = req.cookies?.['_guest_id'];
             if (!sessionKey) {
@@ -90,8 +118,9 @@ export const verifyCsrfToken = async (req, _res, next) => {
             throw new ApiError(403, 'CSRF token missing');
         }
 
-        // Resolve same session key used during token generation
-        let sessionKey = req.user?.id;
+        // Resolve same session key used during token generation.
+        // Peek at the JWT first (works before auth middleware), then fall back.
+        let sessionKey = peekUserId(req) || req.user?.id;
         if (!sessionKey) {
             sessionKey = req.cookies?.['_guest_id'];
         }

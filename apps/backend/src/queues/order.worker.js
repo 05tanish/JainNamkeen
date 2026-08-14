@@ -28,8 +28,9 @@ import { Worker } from 'bullmq';
 import { sendOrderConfirmationEmail } from '../utils/emailService.js';
 import { logger } from '../utils/logger.js';
 import { connectDB } from '../config/mongodb.js';
-import { connectPostgres } from '../config/Postgrsedb.js';
+import { connectPostgres, disconnectPostgres } from '../config/Postgrsedb.js';
 import { connectRedis } from '../config/Redis.js';
+import mongoose from 'mongoose';
 import { workerMetrics } from '../middleware/metrics.js';
 import express from 'express';
 import promClient from 'prom-client';
@@ -146,18 +147,27 @@ const createWorker = () => {
         logger.error(`Worker connection error: ${err.message}`);
     });
 
-    // Graceful shutdown — finish current jobs before exiting
-    process.on('SIGTERM', async () => {
-        logger.info('Worker: SIGTERM received — closing gracefully');
+    // Graceful shutdown — finish current jobs, then release DB connections
+    const workerShutdown = async (signal) => {
+        logger.info(`Worker: ${signal} received — closing gracefully`);
         await worker.close();
+        try {
+            await disconnectPostgres();
+            logger.info('Worker: PostgreSQL pool closed');
+        } catch (err) {
+            logger.warn(`Worker: PostgreSQL disconnect error: ${err.message}`);
+        }
+        try {
+            await mongoose.disconnect();
+            logger.info('Worker: MongoDB connection closed');
+        } catch (err) {
+            logger.warn(`Worker: MongoDB disconnect error: ${err.message}`);
+        }
         process.exit(0);
-    });
+    };
 
-    process.on('SIGINT', async () => {
-        logger.info('Worker: SIGINT received — closing gracefully');
-        await worker.close();
-        process.exit(0);
-    });
+    process.on('SIGTERM', () => workerShutdown('SIGTERM'));
+    process.on('SIGINT', () => workerShutdown('SIGINT'));
 
     return worker;
 };

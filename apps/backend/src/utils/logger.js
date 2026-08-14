@@ -31,81 +31,6 @@ const transports = [
     }),
 ];
 
-// ── Loki Transport with graceful failure handling ────────────────────────────
-if (process.env.LOKI_HOST) {
-    let lokiRetries = 0;
-    const MAX_LOKI_RETRIES = 3;
-    let lokiEnabled = true;
-    let lokiTransportRef = null;
-
-    try {
-        const lokiTransport = new LokiTransport({
-            host: process.env.LOKI_HOST,
-            labels: {
-                app: 'ecommerce-backend',
-                env: process.env.NODE_ENV || 'development',
-                service: 'api'
-            },
-            json: true,
-            format: json(),
-            replaceTimestamp: true,
-            timeout: 5000, // 5 second timeout
-            onConnectionError: (err) => {
-                lokiRetries++;
-                if (lokiRetries <= MAX_LOKI_RETRIES) {
-                    console.warn(`⚠️  Loki connection error (attempt ${lokiRetries}/${MAX_LOKI_RETRIES}): ${err.message}`);
-                } else if (lokiEnabled) {
-                    lokiEnabled = false;
-                    console.warn(`❌ Loki unavailable after ${MAX_LOKI_RETRIES} attempts — logging to Loki disabled`);
-                    // Remove transport from logger
-                    if (lokiTransportRef && logger) {
-                        try {
-                            logger.remove(lokiTransportRef);
-                            console.log('Loki transport removed from logger');
-                        } catch (removeErr) {
-                            console.warn(`Failed to remove Loki transport: ${removeErr.message}`);
-                        }
-                    }
-                }
-            },
-            ...(process.env.LOKI_USERNAME && process.env.LOKI_PASSWORD && {
-                basicAuth: `${process.env.LOKI_USERNAME}:${process.env.LOKI_PASSWORD}`
-            })
-        });
-
-        // Handle transport errors gracefully
-        lokiTransport.on('error', (err) => {
-            lokiRetries++;
-            if (lokiRetries <= MAX_LOKI_RETRIES) {
-                console.warn(`⚠️  Loki transport error (attempt ${lokiRetries}/${MAX_LOKI_RETRIES}): ${err.message}`);
-            } else if (lokiEnabled) {
-                lokiEnabled = false;
-                console.warn(`❌ Loki transport failed after ${MAX_LOKI_RETRIES} attempts — continuing without Loki`);
-                // Remove transport from logger
-                if (lokiTransportRef && logger) {
-                    try {
-                        logger.remove(lokiTransportRef);
-                        console.log('Loki transport removed from logger');
-                    } catch (removeErr) {
-                        console.warn(`Failed to remove Loki transport: ${removeErr.message}`);
-                    }
-                }
-            }
-        });
-
-        lokiTransport.on('finish', () => {
-            if (lokiRetries === 0) {
-                console.log('✅ Grafana Loki logging enabled');
-            }
-        });
-        
-        lokiTransportRef = lokiTransport;
-        transports.push(lokiTransport);
-    } catch (err) {
-        console.warn(`⚠️  Failed to initialize Loki transport: ${err.message} — logging to Loki disabled`);
-    }
-}
-
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_FILE_LOGGING === 'true') {
     const fileCommon = combine(
         timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -128,7 +53,84 @@ if (process.env.NODE_ENV === 'production' || process.env.ENABLE_FILE_LOGGING ===
     );
 }
 
+// ── Create logger FIRST — Loki is added below so its callbacks safely reference logger ─
 const logger = winston.createLogger({ level, levels, transports, exitOnError: false });
+
+// ── Loki Transport (attached after logger is created to avoid TDZ crash) ─────
+// If LOKI_HOST is set and Loki fails immediately at startup, the onConnectionError
+// callback fires synchronously. By adding Loki AFTER logger exists, `logger`
+// is always initialized by the time any callback runs.
+if (process.env.LOKI_HOST) {
+    let lokiRetries = 0;
+    const MAX_LOKI_RETRIES = 3;
+    let lokiEnabled = true;
+    let lokiTransportRef = null;
+
+    try {
+        const lokiTransport = new LokiTransport({
+            host: process.env.LOKI_HOST,
+            labels: {
+                app: 'ecommerce-backend',
+                env: process.env.NODE_ENV || 'development',
+                service: 'api'
+            },
+            json: true,
+            format: json(),
+            replaceTimestamp: true,
+            timeout: 5000,
+            onConnectionError: (err) => {
+                lokiRetries++;
+                if (lokiRetries <= MAX_LOKI_RETRIES) {
+                    logger.warn(`⚠️  Loki connection error (attempt ${lokiRetries}/${MAX_LOKI_RETRIES}): ${err.message}`);
+                } else if (lokiEnabled) {
+                    lokiEnabled = false;
+                    logger.warn(`❌ Loki unavailable after ${MAX_LOKI_RETRIES} attempts — logging to Loki disabled`);
+                    if (lokiTransportRef) {
+                        try {
+                            logger.remove(lokiTransportRef);
+                            logger.info('Loki transport removed from logger');
+                        } catch (removeErr) {
+                            logger.warn(`Failed to remove Loki transport: ${removeErr.message}`);
+                        }
+                    }
+                }
+            },
+            ...(process.env.LOKI_USERNAME && process.env.LOKI_PASSWORD && {
+                basicAuth: `${process.env.LOKI_USERNAME}:${process.env.LOKI_PASSWORD}`
+            })
+        });
+
+        lokiTransport.on('error', (err) => {
+            lokiRetries++;
+            if (lokiRetries <= MAX_LOKI_RETRIES) {
+                logger.warn(`⚠️  Loki transport error (attempt ${lokiRetries}/${MAX_LOKI_RETRIES}): ${err.message}`);
+            } else if (lokiEnabled) {
+                lokiEnabled = false;
+                logger.warn(`❌ Loki transport failed after ${MAX_LOKI_RETRIES} attempts — continuing without Loki`);
+                if (lokiTransportRef) {
+                    try {
+                        logger.remove(lokiTransportRef);
+                        logger.info('Loki transport removed from logger');
+                    } catch (removeErr) {
+                        logger.warn(`Failed to remove Loki transport: ${removeErr.message}`);
+                    }
+                }
+            }
+        });
+
+        lokiTransport.on('finish', () => {
+            if (lokiRetries === 0) {
+                logger.info('✅ Grafana Loki logging enabled');
+            }
+        });
+
+        lokiTransportRef = lokiTransport;
+        // Add Loki transport dynamically — logger already exists at this point
+        logger.add(lokiTransport);
+    } catch (err) {
+        logger.warn(`⚠️  Failed to initialize Loki transport: ${err.message} — logging to Loki disabled`);
+    }
+}
 
 logger.stream = { write: (msg) => logger.http(msg.trim()) };
 

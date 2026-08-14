@@ -2,7 +2,8 @@ import 'dotenv/config';
 import { validateEnv, printEnvConfig, performStartupChecks } from './utils/validateEnv.js';
 import { connectDB } from './config/mongodb.js';
 import { connectRedis } from './config/Redis.js';
-import { connectPostgres } from './config/Postgrsedb.js';
+import { connectPostgres, disconnectPostgres } from './config/Postgrsedb.js';
+import mongoose from 'mongoose';
 import { app } from './App.js';
 
 // Validate environment variables at startup
@@ -28,10 +29,22 @@ const start = async () => {
         logger.info(`🏥 Health: http://localhost:${PORT}/api/health`);
     });
 
-    const shutdown = (signal) => {
+    const shutdown = async (signal) => {
         logger.info(`${signal} received — shutting down gracefully`);
-        server.close(() => {
+        server.close(async () => {
             logger.info('✅ HTTP server closed');
+            try {
+                await disconnectPostgres();
+                logger.info('✅ PostgreSQL pool closed');
+            } catch (err) {
+                logger.warn(`PostgreSQL disconnect error: ${err.message}`);
+            }
+            try {
+                await mongoose.disconnect();
+                logger.info('✅ MongoDB connection closed');
+            } catch (err) {
+                logger.warn(`MongoDB disconnect error: ${err.message}`);
+            }
             process.exit(0);
         });
         setTimeout(() => {
@@ -57,3 +70,4 @@ const start = async () => {
 };
 
 start();
+
