@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jain-namkeen-frontend",
+  "compatibility_date": "2026-11-15",
+  "assets": {
+    "directory": "./apps/frontend/dist",
+    "not_found_handling": "single-page-application"
+  }
+}
