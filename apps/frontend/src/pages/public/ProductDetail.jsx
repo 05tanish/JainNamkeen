@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { FiShoppingCart, FiStar, FiEdit, FiTrash2, FiCheck, FiMapPin, FiClock, FiAward } from 'react-icons/fi';
 import { Skeleton, Tabs, Tab, TabList, TabPanel, Accordion, AccordionItem, AccordionTrigger, AccordionBody } from '@heroui/react';
 import API from '../../api/axios';
@@ -34,7 +34,6 @@ ProductDetailsSkeleton.displayName = 'ProductDetailsSkeleton';
 
 export default function ProductDetail() {
     const { id } = useParams();
-    const navigate = useNavigate();
     const { user } = useAuth();
     const { addToCart } = useCart();
     const [product, setProduct] = useState(null);
@@ -54,15 +53,17 @@ export default function ProductDetail() {
     const fetchReviews = useCallback(async () => {
         try {
             const res = await API.get(`/reviews/product/${id}`);
-            setReviews(res.data.reviews);
-            setStats(res.data.stats);
+            setReviews(res.data.reviews || []);
+            setStats(res.data.stats || { totalReviews: 0, averageRating: 0 });
         } catch (error) {
             console.error('Failed to load reviews', error);
         }
     }, [id]);
 
     useEffect(() => {
+        let isMounted = true;
         API.get(`/products/${id}`).then(res => {
+            if (!isMounted) return;
             setProduct(res.data);
             setLoading(false);
             
@@ -85,11 +86,21 @@ export default function ProductDetail() {
                 localStorage.setItem('recentlyViewed', JSON.stringify(filtered.slice(0, 10)));
             } catch { /* ignore */ }
         }).catch(() => {
-            setLoading(false);
+            if (isMounted) setLoading(false);
         });
 
-        fetchReviews();
-    }, [id, fetchReviews]);
+        API.get(`/reviews/product/${id}`).then(res => {
+            if (!isMounted) return;
+            setReviews(res.data.reviews || []);
+            setStats(res.data.stats || { totalReviews: 0, averageRating: 0 });
+        }).catch((error) => {
+            console.error('Failed to load reviews', error);
+        });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [id]);
 
     const handleAddToCart = async () => {
         if (!user) {
@@ -103,7 +114,7 @@ export default function ProductDetail() {
         setTimeout(() => setAdded(false), 2000);
     };
 
-    const handleReviewSubmit = async (e) => {
+    const handleReviewSubmit = useCallback(async (e) => {
         e.preventDefault();
         try {
             const formData = new FormData();
@@ -130,9 +141,9 @@ export default function ProductDetail() {
         } catch (error) {
             alert(error.response?.data?.message || 'Error submitting review');
         }
-    };
+    }, [editingReview, fetchReviews, id, reviewForm]);
 
-    const handleDeleteReview = async (reviewId) => {
+    const handleDeleteReview = useCallback(async (reviewId) => {
         if (!confirm('Delete this review?')) return;
         try {
             await API.delete(`/reviews/${reviewId}`);
@@ -140,7 +151,7 @@ export default function ProductDetail() {
         } catch {
             alert('Error deleting review');
         }
-    };
+    }, [fetchReviews]);
 
     // All useMemo hooks must be called unconditionally — before any early returns
     const descriptionTabContent = useMemo(() => (
@@ -561,12 +572,35 @@ export default function ProductDetail() {
 
                         {/* Add to Cart */}
                         {(selectedVariant ? selectedVariant.stock > 0 : product.stock > 0) && (
-                            <div className="product-actions">
+                            <div className="product-actions" style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    border: '2px solid var(--border)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    height: 56,
+                                    background: 'var(--surface-container)'
+                                }}>
+                                    <button
+                                        type="button"
+                                        style={{ width: 44, height: '100%', background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-primary)' }}
+                                        onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                                        aria-label="Decrease quantity"
+                                    >−</button>
+                                    <span style={{ padding: '0 16px', fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{quantity}</span>
+                                    <button
+                                        type="button"
+                                        style={{ width: 44, height: '100%', background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-primary)' }}
+                                        onClick={() => setQuantity(q => q + 1)}
+                                        aria-label="Increase quantity"
+                                    >+</button>
+                                </div>
                                 <button
                                     className="btn btn-primary"
                                     onClick={handleAddToCart}
                                     style={{
                                         flex: 1,
+                                        minWidth: 160,
                                         height: 56,
                                         fontSize: '1.1rem',
                                         background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',

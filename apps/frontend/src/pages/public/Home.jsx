@@ -5,11 +5,9 @@ import API from '../../api/axios';
 import './Home.css';
 
 export default function Home() {
-    const [featuredProducts, setFeaturedProducts] = useState([]);
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        API.get('/products?featured=true&limit=3').then(res => setFeaturedProducts(res.data.products));
         API.get('/categories').then(res => setCategories(res.data.slice(0, 3)));
     }, []);
 
@@ -52,23 +50,33 @@ export default function Home() {
                     </div>
                     <div className="collections-grid">
                         {categories.map((cat, idx) => {
-                            // Use placeholder images with fallback
-                            const imageUrls = [
-                                cat.image || 'https://via.placeholder.com/400x400/a04100/ffffff?text=Snacks',
-                                cat.image || 'https://via.placeholder.com/400x400/7a3200/ffffff?text=Traditional',
-                                cat.image || 'https://via.placeholder.com/400x400/8b4513/ffffff?text=Sweets'
-                            ];
+                            const fallbackColors = ['#a04100', '#7a3200', '#8b4513'];
+                            const fallbackColor = fallbackColors[idx % fallbackColors.length];
                             return (
                                 <Link to={`/products?category=${cat.id}`} key={cat.id} className="collection-card">
                                     <div className="collection-image">
-                                        <img 
-                                            src={cat.image || imageUrls[idx % imageUrls.length]} 
-                                            alt={cat.name}
-                                            onError={(e) => { 
-                                                e.target.onerror = null; 
-                                                e.target.src = `https://via.placeholder.com/400x400/a04100/ffffff?text=${encodeURIComponent(cat.name)}`; 
-                                            }}
-                                        />
+                                        {cat.image ? (
+                                            <img
+                                                src={cat.image}
+                                                alt={cat.name}
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.style.display = 'none';
+                                                    e.target.parentElement.setAttribute('data-label', cat.name);
+                                                    e.target.parentElement.style.background = fallbackColor;
+                                                }}
+                                            />
+                                        ) : (
+                                            <div style={{
+                                                width: '100%', height: '100%',
+                                                background: fallbackColor,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: '#fff', fontSize: '1.2rem', fontWeight: 700,
+                                                letterSpacing: 1
+                                            }}>
+                                                {cat.name}
+                                            </div>
+                                        )}
                                     </div>
                                     <h3>{cat.name}</h3>
                                     <p>{cat.description || 'Handcrafted with authentic spices and traditional recipes'}</p>
@@ -87,18 +95,18 @@ export default function Home() {
                         <div className="heritage-images">
                             <div className="heritage-image" style={{ transform: 'translateY(32px)' }}>
                                 <img 
-                                    src="https://via.placeholder.com/600x500/a04100/ffffff?text=Traditional+Market" 
-                                    alt="Traditional Udaipur market stall" 
+                                    src="https://images.unsplash.com/photo-1606471191009-63994c53433b?w=600&q=80" 
+                                    alt="Traditional Indian market stall with snacks"
                                     style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }}
-                                    onError={(e) => { e.target.style.background = '#a04100'; }}
+                                    onError={(e) => { e.target.style.background = '#a04100'; e.target.removeAttribute('src'); }}
                                 />
                             </div>
                             <div className="heritage-image">
                                 <img 
-                                    src="https://via.placeholder.com/600x500/7a3200/ffffff?text=Heritage+Kitchen" 
-                                    alt="Rajasthani palace carvings" 
+                                    src="https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&q=80"
+                                    alt="Rajasthani heritage kitchen"
                                     style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xl)' }}
-                                    onError={(e) => { e.target.style.background = '#7a3200'; }}
+                                    onError={(e) => { e.target.style.background = '#7a3200'; e.target.removeAttribute('src'); }}
                                 />
                             </div>
                         </div>

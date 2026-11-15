@@ -31,3 +31,9 @@ export const toggleCouponStatus = asyncHandler(async (req, res) => {
     const coupon = await CouponService.toggleCouponStatus(req.params.id);
     successResponse(res, { statusCode: 200, data: coupon, message: `Coupon ${coupon.isActive ? 'enabled' : 'disabled'}` });
 });
+
+export const validateCoupon = asyncHandler(async (req, res) => {
+    const { code, orderAmount } = req.body;
+    const result = await CouponService.validateCoupon(code, orderAmount);
+    successResponse(res, { statusCode: 200, data: result, message: 'Coupon is valid' });
+});

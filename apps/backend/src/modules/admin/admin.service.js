@@ -1,4 +1,9 @@
 import { prisma } from '../../config/Postgrsedb.js';
+import { isRedisConnected, getRedisClient } from '../../config/Redis.js';
+import { isMongoConnected } from '../../config/mongodb.js';
+import { healthCheck } from '../../middleware/metrics.js';
+import mongoose from 'mongoose';
+import os from 'os';
 
 export const getConversionRate = async () => {
     const sixMonthsAgo = new Date();
@@ -123,3 +128,94 @@ export const getRefundStats = async () => {
     };
 };
 
+
+export const getSystemStatus = async () => {
+    const startTime = process.hrtime.bigint();
+
+    // ── PostgreSQL ────────────────────────────────────────────────────────────
+    let postgresStatus = { connected: false, latencyMs: null, error: null };
+    try {
+        const t0 = Date.now();
+        await prisma.$queryRaw`SELECT 1`;
+        postgresStatus = { connected: true, latencyMs: Date.now() - t0, error: null };
+        healthCheck.labels('database').set(1);
+    } catch (err) {
+        postgresStatus.error = err.message;
+        healthCheck.labels('database').set(0);
+    }
+
+    // ── MongoDB ───────────────────────────────────────────────────────────────
+    const mongoReadyState = mongoose.connection.readyState;
+    // readyState: 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+    const mongoStateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+    let mongoStatus = {
+        connected: mongoReadyState === 1,
+        state: mongoStateMap[mongoReadyState] ?? 'unknown',
+        latencyMs: null,
+        error: null,
+    };
+    if (mongoReadyState === 1) {
+        try {
+            const t0 = Date.now();
+            await mongoose.connection.db.admin().ping();
+            mongoStatus.latencyMs = Date.now() - t0;
+            healthCheck.labels('mongo').set(1);
+        } catch (err) {
+            mongoStatus.error = err.message;
+            healthCheck.labels('mongo').set(0);
+        }
+    } else {
+        healthCheck.labels('mongo').set(0);
+    }
+
+    // ── Redis ─────────────────────────────────────────────────────────────────
+    const redisUp = isRedisConnected();
+    let redisStatus = { connected: redisUp, latencyMs: null, error: null };
+    if (redisUp) {
+        try {
+            const client = getRedisClient();
+            const t0 = Date.now();
+            await client.ping();
+            redisStatus.latencyMs = Date.now() - t0;
+            healthCheck.labels('redis').set(1);
+        } catch (err) {
+            redisStatus.connected = false;
+            redisStatus.error = err.message;
+            healthCheck.labels('redis').set(0);
+        }
+    } else {
+        healthCheck.labels('redis').set(0);
+    }
+
+    // ── Process / System ─────────────────────────────────────────────────────
+    const memUsage = process.memoryUsage();
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const uptimeSeconds = Math.floor(process.uptime());
+
+    healthCheck.labels('app').set(1);
+
+    return {
+        timestamp: new Date().toISOString(),
+        uptime: uptimeSeconds,
+        services: {
+            postgres: postgresStatus,
+            mongodb: mongoStatus,
+            redis: redisStatus,
+        },
+        process: {
+            heapUsedMB: Math.round(memUsage.heapUsed / 1024 / 1024),
+            heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
+            rssMemMB: Math.round(memUsage.rss / 1024 / 1024),
+            externalMB: Math.round(memUsage.external / 1024 / 1024),
+        },
+        system: {
+            freeMemMB: Math.round(freeMem / 1024 / 1024),
+            totalMemMB: Math.round(totalMem / 1024 / 1024),
+            memUsedPct: Math.round(((totalMem - freeMem) / totalMem) * 100),
+            cpuCount: os.cpus().length,
+            platform: os.platform(),
+            nodeVersion: process.version,
+        },
+    };
+};

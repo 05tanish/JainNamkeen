@@ -7,7 +7,7 @@
 export const safeJsonParse = (jsonString, defaultValue = null) => {
     try {
         return JSON.parse(jsonString);
-    } catch (error) {
+    } catch {
         return defaultValue;
     }
 };

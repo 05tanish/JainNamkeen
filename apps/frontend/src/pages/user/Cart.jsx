@@ -13,7 +13,7 @@ export default function Cart() {
         try {
             await updateQuantity(productId, variantId, newQuantity);
             showAlert('Cart updated successfully', 'success');
-        } catch (error) {
+        } catch {
             showAlert('Failed to update cart. Please try again.', 'error');
         }
     };
@@ -23,7 +23,7 @@ export default function Cart() {
         try {
             await removeFromCart(productId, variantId);
             showAlert('Item removed from cart', 'info');
-        } catch (error) {
+        } catch {
             showAlert('Failed to remove item. Please try again.', 'error');
         }
     };

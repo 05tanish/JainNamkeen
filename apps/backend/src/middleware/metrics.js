@@ -218,7 +218,9 @@ export const healthCheck = new promClient.Gauge({
     labelNames: ['component'],
 });
 
-// Set initial health status
+// Set initial health status — will be updated by the system status endpoint
+// on first poll. Using 1 optimistically since the app just started successfully.
 healthCheck.labels('app').set(1);
 healthCheck.labels('database').set(1);
-healthCheck.labels('redis').set(1);
+healthCheck.labels('mongo').set(1);
+healthCheck.labels('redis').set(0); // Redis is optional — default to 0 until confirmed

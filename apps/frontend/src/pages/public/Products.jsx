@@ -79,6 +79,7 @@ export default function Products() {
     useEffect(() => {
         const fetchProducts = async () => {
             setLoading(true);
+            setCurrentPage(1);
             const params = new URLSearchParams();
             if (activeCategory) params.set('category', activeCategory);
             if (activeTag) params.set('tag', activeTag);
@@ -94,11 +95,6 @@ export default function Products() {
             setLoading(false);
         };
         fetchProducts();
-    }, [activeCategory, activeTag, activeSort, activeMinPrice, activeMaxPrice, activeWeight, search]);
-
-    // Reset to page 1 when filters change
-    useEffect(() => {
-        setCurrentPage(1);
     }, [activeCategory, activeTag, activeSort, activeMinPrice, activeMaxPrice, activeWeight, search]);
 
     // Auto-suggest debounced

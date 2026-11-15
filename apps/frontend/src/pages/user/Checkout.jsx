@@ -86,30 +86,27 @@ export default function Checkout() {
         return Math.max(0, cartTotal + deliveryCharge - discount);
     }, [cartTotal, deliveryCharge, discount]);
 
-    const handleApplyCoupon = (e) => {
+    const handleApplyCoupon = async (e) => {
         e.preventDefault();
         setCouponError('');
-        const coupon = activeCoupons.find(c => c.code.toUpperCase() === couponCode.toUpperCase());
-        
-        if (!coupon) {
-            const errorMsg = 'Invalid or expired coupon code';
+        const trimmedCode = couponCode.trim();
+        if (!trimmedCode) return;
+
+        try {
+            const res = await API.post('/coupons/validate', {
+                code: trimmedCode,
+                orderAmount: cartTotal
+            });
+            const couponResult = res.data?.coupon || res.data;
+            setAppliedCoupon(couponResult);
+            setCouponCode('');
+            showAlert(`Coupon ${couponResult.code} applied successfully!`, 'success');
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Invalid or expired coupon code';
             setCouponError(errorMsg);
             setAppliedCoupon(null);
             showAlert(errorMsg, 'error');
-            return;
         }
-        
-        if (cartTotal < (coupon.minOrderAmount || 0)) {
-            const errorMsg = `Minimum order amount of ₹${coupon.minOrderAmount} required`;
-            setCouponError(errorMsg);
-            setAppliedCoupon(null);
-            showAlert(errorMsg, 'error');
-            return;
-        }
-        
-        setAppliedCoupon(coupon);
-        setCouponCode('');
-        showAlert(`Coupon ${coupon.code} applied successfully!`, 'success');
     };
 
     const handleSubmit = async (e) => {
@@ -148,7 +145,7 @@ export default function Checkout() {
                 initiatePayment(
                     order.id,
                     // Success callback
-                    async (paymentData) => {
+                    async () => {
                         await clearCart();
                         showAlert('Payment successful! Order confirmed.', 'success');
                         setTimeout(() => {

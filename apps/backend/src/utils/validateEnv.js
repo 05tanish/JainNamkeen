@@ -132,7 +132,7 @@ export function validateEnv() {
  * @param {Object} env - Validated environment variables
  */
 export function printEnvConfig(env) {
-  const maskSensitive = (key, value) => {
+  const _maskSensitive = (key, value) => {
     const sensitiveKeys = [
       'JWT_SECRET',
       'DATABASE_URL',

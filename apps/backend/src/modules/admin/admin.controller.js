@@ -16,3 +16,13 @@ export const getRefundStats = asyncHandler(async (req, res) => {
     const data = await AdminService.getRefundStats();
     successResponse(res, { statusCode: 200, data: data, message: 'Refund stats fetched' });
 });
+
+export const getSystemStatus = asyncHandler(async (req, res) => {
+    const data = await AdminService.getSystemStatus();
+    const allConnected = data.services.postgres.connected && data.services.mongodb.connected;
+    successResponse(res, {
+        statusCode: allConnected ? 200 : 207,
+        data,
+        message: 'System status fetched',
+    });
+});

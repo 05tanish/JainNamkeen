@@ -25,7 +25,7 @@
 
 import 'dotenv/config';
 import { Worker } from 'bullmq';
-import { sendOrderConfirmationEmail } from '../utils/emailService.js';
+import { sendOrderConfirmationEmail, sendCampaignEmail } from '../utils/emailService.js';
 import { logger } from '../utils/logger.js';
 import { connectDB } from '../config/mongodb.js';
 import { connectPostgres, disconnectPostgres } from '../config/Postgrsedb.js';
@@ -61,6 +61,10 @@ const processOrderJob = async (job) => {
         switch (job.name) {
             case 'order-confirmation':
                 await handleOrderConfirmation(job.data);
+                break;
+
+            case 'email-campaign':
+                await handleEmailCampaign(job.data);
                 break;
 
             default:
@@ -116,6 +120,26 @@ const handleOrderConfirmation = async ({ orderId, customerEmail, customerName, t
     });
 
     logger.info(`Order confirmation email sent → ${customerEmail} for order ${orderId}`);
+};
+
+/**
+ * Sends a campaign broadcast email to a recipient.
+ *
+ * @param {object} data
+ * @param {string} data.email
+ * @param {string} data.name
+ * @param {string} data.subject
+ * @param {string} data.body
+ * @param {string} data.campaignId
+ */
+const handleEmailCampaign = async ({ email, name, subject, body, campaignId }) => {
+    if (!email) {
+        logger.warn(`email-campaign job for campaign ${campaignId}: missing email — skipping`);
+        return;
+    }
+
+    await sendCampaignEmail(email, name, subject, body);
+    logger.info(`Campaign email sent → ${email} for campaign ${campaignId}`);
 };
 
 /**
@@ -185,7 +209,7 @@ const start = async () => {
         logger.info('✅ Worker database connections established');
 
         // Create and start the worker
-        const worker = createWorker();
+        const _worker = createWorker();
         
         // Mark worker as active
         workerMetrics.workerActive.set({ queue: 'order-jobs' }, 1);

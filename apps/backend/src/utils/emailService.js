@@ -233,3 +233,48 @@ export const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
     throw err;
   }
 };
+
+export const sendCampaignEmail = async (email, name, subject, body) => {
+  const formattedBody = String(body || '')
+    .split('\n')
+    .filter(p => p.trim())
+    .map(p => `<p style="color:#555;font-size:16px;line-height:1.7;margin:0 0 16px;">${p}</p>`)
+    .join('');
+
+  const html = emailWrapper(`
+      <tr>
+        <td style="background:linear-gradient(135deg,#a04100,#7a3200);padding:36px 24px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:26px;letter-spacing:1px;font-family:Georgia,serif;">Jain Namkeen</h1>
+          <p style="color:#fed7aa;margin:6px 0 0;font-size:14px;letter-spacing:0.5px;">Artisanal Rajasthani Delicacies</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:36px 28px;background:#ffffff;">
+          <h2 style="color:#2c1810;margin:0 0 16px;font-size:22px;">Hello ${name || 'Valued Customer'},</h2>
+          ${formattedBody}
+          <div style="text-align:center;margin:32px 0 16px;">
+            <a href="${FRONTEND_URL}/products"
+               style="background:#a04100;color:#fff;padding:14px 32px;border-radius:24px;
+                      text-decoration:none;font-weight:bold;font-size:15px;display:inline-block;letter-spacing:0.5px;">
+              Explore Our Collection
+            </a>
+          </div>
+        </td>
+      </tr>`);
+
+  try {
+    const resend = getResend();
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Jain Namkeen <updates@jainnamkeen.com>',
+      to: email,
+      subject: subject || 'Special Announcement from Jain Namkeen',
+      html,
+    });
+    if (error) throw new Error(error.message || 'Resend API error');
+    logger.info('Campaign email dispatched', { email, subject, messageId: data?.id });
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    logger.error('Failed to send campaign email', { error: err.message, email, subject });
+    throw err;
+  }
+};

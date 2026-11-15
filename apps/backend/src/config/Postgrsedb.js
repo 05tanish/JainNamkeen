@@ -19,19 +19,19 @@ const pool = new Pool({
 });
 
 // Pool event handlers for monitoring
-pool.on('connect', (client) => {
+pool.on('connect', () => {
     logger.debug('New PostgreSQL client connected to pool');
 });
 
-pool.on('acquire', (client) => {
+pool.on('acquire', () => {
     logger.debug('PostgreSQL client acquired from pool');
 });
 
-pool.on('error', (err, client) => {
+pool.on('error', (err) => {
     logger.error('Unexpected PostgreSQL pool error', { error: err.message });
 });
 
-pool.on('remove', (client) => {
+pool.on('remove', () => {
     logger.debug('PostgreSQL client removed from pool');
 });
 

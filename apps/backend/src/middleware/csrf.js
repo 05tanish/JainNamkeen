@@ -81,7 +81,7 @@ export const provideCsrfToken = async (req, res, next) => {
         // Try Redis first, fallback to memory
         try {
             await cacheSet(`csrf:${sessionKey}`, token, CSRF_TOKEN_TTL);
-        } catch (err) {
+        } catch {
             logger.warn('Redis unavailable for CSRF, using in-memory store');
             csrfMemoryStore.set(sessionKey, {
                 token,
@@ -132,7 +132,7 @@ export const verifyCsrfToken = async (req, _res, next) => {
         let storedToken;
         try {
             storedToken = await cacheGet(`csrf:${sessionKey}`);
-        } catch (err) {
+        } catch {
             logger.warn('Redis unavailable for CSRF verification, checking memory store');
             const memoryEntry = csrfMemoryStore.get(sessionKey);
             if (memoryEntry && memoryEntry.expires > Date.now()) {

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { FiGrid, FiBox, FiTag, FiShoppingBag, FiUsers, FiLogOut, FiUser, FiCalendar, FiMapPin, FiPercent, FiImage, FiBell, FiAlertTriangle, FiTruck, FiXCircle, FiFileText, FiStar, FiMessageSquare, FiSettings } from 'react-icons/fi';
+import { FiGrid, FiBox, FiTag, FiShoppingBag, FiUsers, FiLogOut, FiUser, FiCalendar, FiMapPin, FiPercent, FiImage, FiBell, FiAlertTriangle, FiTruck, FiXCircle, FiFileText, FiStar, FiMessageSquare, FiSettings, FiRefreshCw, FiDatabase, FiServer, FiCpu } from 'react-icons/fi';
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../components/AlertManager';
@@ -178,6 +178,204 @@ function Dashboard() {
                         </table>
                     </div>
                 </div>
+            )}
+
+            {/* System Status */}
+            <SystemStatus />
+        </div>
+    );
+}
+
+// ─── System Status Widget ───
+function SystemStatus() {
+    const [status, setStatus] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [lastRefreshed, setLastRefreshed] = useState(null);
+    const intervalRef = useRef(null);
+
+    const fetchStatus = useCallback(async () => {
+        try {
+            const res = await API.get('/admin/system-status');
+            setStatus(res.data);
+            setLastRefreshed(new Date());
+        } catch {
+            setStatus(null);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchStatus();
+        // Auto-refresh every 30 seconds
+        intervalRef.current = setInterval(fetchStatus, 30000);
+        return () => clearInterval(intervalRef.current);
+    }, [fetchStatus]);
+
+    const formatUptime = (s) => {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        if (h > 0) return `${h}h ${m}m`;
+        if (m > 0) return `${m}m ${sec}s`;
+        return `${sec}s`;
+    };
+
+    const ServiceBadge = ({ ok, latency }) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+                display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                background: ok ? 'var(--success)' : 'var(--danger)',
+                boxShadow: ok ? '0 0 6px var(--success)' : '0 0 6px var(--danger)',
+                flexShrink: 0,
+            }} />
+            <span style={{
+                fontWeight: 600, fontSize: '0.88rem',
+                color: ok ? 'var(--success)' : 'var(--danger)',
+            }}>
+                {ok ? 'Connected' : 'Disconnected'}
+            </span>
+            {ok && latency != null && (
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{latency}ms</span>
+            )}
+        </div>
+    );
+
+    const services = status ? [
+        {
+            label: 'PostgreSQL',
+            icon: <FiDatabase size={18} />,
+            ok: status.services?.postgres?.connected,
+            latency: status.services?.postgres?.latencyMs,
+            detail: status.services?.postgres?.error || 'Primary database',
+        },
+        {
+            label: 'MongoDB',
+            icon: <FiDatabase size={18} />,
+            ok: status.services?.mongodb?.connected,
+            latency: status.services?.mongodb?.latencyMs,
+            detail: status.services?.mongodb?.error || `State: ${status.services?.mongodb?.state}`,
+        },
+        {
+            label: 'Redis',
+            icon: <FiServer size={18} />,
+            ok: status.services?.redis?.connected,
+            latency: status.services?.redis?.latencyMs,
+            detail: status.services?.redis?.error || 'Cache layer',
+        },
+    ] : [];
+
+    const allOk = services.length > 0 && services.every(s => s.ok);
+    const criticalDown = status && (!status.services?.postgres?.connected || !status.services?.mongodb?.connected);
+
+    return (
+        <div style={{ marginTop: 32 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <FiCpu /> System Status
+                    {!loading && (
+                        <span style={{
+                            marginLeft: 8, padding: '2px 10px', borderRadius: 12,
+                            fontSize: '0.78rem', fontWeight: 700,
+                            background: criticalDown ? 'var(--error-container)' : allOk ? 'var(--success-container)' : 'var(--warning-container)',
+                            color: criticalDown ? 'var(--on-error-container)' : allOk ? 'var(--on-success-container)' : 'var(--on-warning-container)',
+                        }}>
+                            {criticalDown ? '⚠ Degraded' : allOk ? '✓ All Systems Operational' : '⚠ Partial'}
+                        </span>
+                    )}
+                </h3>
+                <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={fetchStatus}
+                    disabled={loading}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                    <FiRefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
+                    {loading ? 'Checking...' : 'Refresh'}
+                </button>
+            </div>
+
+            {loading && !status && (
+                <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <FiRefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
+                    Checking services...
+                </div>
+            )}
+
+            {!loading && !status && (
+                <div className="card" style={{ padding: 24, textAlign: 'center', color: 'var(--danger)' }}>
+                    <FiAlertTriangle size={24} style={{ display: 'block', margin: '0 auto 8px' }} />
+                    Could not reach the backend status endpoint.
+                </div>
+            )}
+
+            {status && (
+                <>
+                    {/* Service Cards */}
+                    <div className="grid grid-3" style={{ marginBottom: 20 }}>
+                        {services.map(svc => (
+                            <div key={svc.label} className="card" style={{
+                                padding: '16px 20px',
+                                borderLeft: `3px solid ${svc.ok ? 'var(--success)' : 'var(--danger)'}`,
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: '0.95rem' }}>
+                                        <span style={{ color: svc.ok ? 'var(--success)' : 'var(--danger)' }}>{svc.icon}</span>
+                                        {svc.label}
+                                    </div>
+                                </div>
+                                <ServiceBadge ok={svc.ok} latency={svc.latency} />
+                                {svc.detail && (
+                                    <div style={{ marginTop: 6, fontSize: '0.78rem', color: svc.ok ? 'var(--text-muted)' : 'var(--danger)', wordBreak: 'break-word' }}>
+                                        {svc.detail}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Process & System Info */}
+                    <div className="grid grid-2" style={{ gap: 16 }}>
+                        <div className="card" style={{ padding: '16px 20px' }}>
+                            <h4 style={{ marginBottom: 12, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Process</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {[
+                                    { label: 'Uptime', value: formatUptime(status.uptime) },
+                                    { label: 'Heap Used', value: `${status.process?.heapUsedMB} MB / ${status.process?.heapTotalMB} MB` },
+                                    { label: 'RSS Memory', value: `${status.process?.rssMemMB} MB` },
+                                    { label: 'Node.js', value: status.system?.nodeVersion },
+                                ].map(row => (
+                                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+                                        <span style={{ fontWeight: 600 }}>{row.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="card" style={{ padding: '16px 20px' }}>
+                            <h4 style={{ marginBottom: 12, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>System</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {[
+                                    { label: 'Memory Used', value: `${status.system?.memUsedPct}%  (${status.system?.freeMemMB} MB free)` },
+                                    { label: 'Total RAM', value: `${status.system?.totalMemMB} MB` },
+                                    { label: 'CPU Cores', value: status.system?.cpuCount },
+                                    { label: 'Platform', value: status.system?.platform },
+                                ].map(row => (
+                                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+                                        <span style={{ fontWeight: 600 }}>{row.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {lastRefreshed && (
+                        <div style={{ marginTop: 10, textAlign: 'right', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            Last checked: {lastRefreshed.toLocaleTimeString()} · auto-refreshes every 30s
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
@@ -1565,13 +1763,95 @@ function AdminSettings() {
                 )}
             </div>
 
-            {/* Future Settings Placeholder */}
-            <div className="card" style={{ padding: 24, opacity: 0.6 }}>
-                <h3 style={{ marginBottom: 16 }}>🚀 More Settings Coming Soon</h3>
-                <p style={{ color: 'var(--text-muted)' }}>
-                    Additional settings like email notifications, SMS alerts, tax configuration, 
-                    and shipping options will be available in future updates.
+            {/* Store Info Card */}
+            <div className="card" style={{ padding: 24, marginBottom: 24 }}>
+                <h3 style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    🏪 Store Information
+                </h3>
+                <div className="grid grid-2" style={{ gap: 16 }}>
+                    <div style={{ padding: '12px 16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontWeight: 600, marginBottom: 2 }}>Store Name</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Jain Namkeen</div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '12px 16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontWeight: 600, marginBottom: 2 }}>Location</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Udaipur, Rajasthan, India</div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '12px 16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontWeight: 600, marginBottom: 2 }}>Currency</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>INR (₹)</div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '12px 16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontWeight: 600, marginBottom: 2 }}>Support Email</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>support@jainnamkeen.com</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Notification Channels Card */}
+            <div className="card" style={{ padding: 24, marginBottom: 24 }}>
+                <h3 style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    🔔 Notification Channels
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 16 }}>
+                    Manage how customers and staff receive updates. Configure channels from the{' '}
+                    <a href="/admin/notifications" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Notifications page</a>.
                 </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                        { label: 'In-App Broadcasts', desc: 'Push notifications inside the app for all users', status: 'active' },
+                        { label: 'Email Campaigns', desc: 'Bulk email via SendGrid / AWS SES integration', status: 'manual' },
+                        { label: 'SMS Alerts', desc: 'Order updates via SMS gateway', status: 'inactive' },
+                    ].map(ch => (
+                        <div key={ch.label} style={{ padding: '12px 16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontWeight: 600, marginBottom: 2 }}>{ch.label}</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{ch.desc}</div>
+                            </div>
+                            <span style={{
+                                padding: '4px 12px', borderRadius: 4, fontSize: '0.82rem', fontWeight: 600,
+                                background: ch.status === 'active' ? 'var(--success-container)' : ch.status === 'manual' ? 'var(--info-container)' : 'var(--surface-variant)',
+                                color: ch.status === 'active' ? 'var(--on-success-container)' : ch.status === 'manual' ? 'var(--on-info-container)' : 'var(--text-muted)'
+                            }}>
+                                {ch.status === 'active' ? '✓ Active' : ch.status === 'manual' ? 'Manual' : 'Inactive'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Shipping & Tax Card */}
+            <div className="card" style={{ padding: 24 }}>
+                <h3 style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    🚚 Shipping & Tax
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 16 }}>
+                    Current store defaults. Edit in your backend environment / database config.
+                </p>
+                <div className="grid grid-2" style={{ gap: 16 }}>
+                    {[
+                        { label: 'Free Shipping Threshold', value: '₹500+', note: 'Orders above ₹500 ship free' },
+                        { label: 'Standard Shipping Fee', value: '₹50', note: 'Applied below the threshold' },
+                        { label: 'GST Rate', value: '5%', note: 'FSSAI food category' },
+                        { label: 'COD Handling Fee', value: '₹0', note: 'No extra charge for COD' },
+                    ].map(row => (
+                        <div key={row.label} style={{ padding: '12px 16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-sm)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                                <div style={{ fontWeight: 600 }}>{row.label}</div>
+                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.value}</div>
+                            </div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{row.note}</div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );

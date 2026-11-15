@@ -139,6 +139,8 @@ apps/frontend/src/__tests__
 BUGS.md
 BUGS_FIXED copy.md
 BUGS_FIXED.md
+task.md
+CODEBASE_AUDIT_REPORT.md
 # Docker
 .dockerignore
 docker-compose.override.yml
@@ -160,3 +162,5 @@ secrets/
 
 #docs
 docs
+apps/backend/prisma/verify-users.js
+/Users/tanishjain/carrer/mainprojects/ecommercee/apps/backend/scripts/mongo-init.js

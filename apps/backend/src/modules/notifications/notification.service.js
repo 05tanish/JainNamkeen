@@ -2,6 +2,7 @@ import Notification from './notification.model.js';
 import { prisma } from '../../config/Postgrsedb.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { logger } from '../../utils/logger.js';
+import { orderQueue } from '../../queues/order.queue.js';
 
 
 export const createNotification = async ({ title, body, type, recipients, subject }, createdBy) => {
@@ -23,13 +24,47 @@ export const getNotifications = async ({ type } = {}) => {
     }
 
 export const broadcastNotification = async (id) => {
-        const notification = await Notification.findById(id);
-        if (!notification) throw new ApiError(404, 'Notification not found');
-        notification.isSent = true;
-        notification.sentAt = new Date();
-        await notification.save();
-        return notification;
+    const notification = await Notification.findById(id);
+    if (!notification) throw new ApiError(404, 'Notification not found');
+
+    let queuedCount = 0;
+    if (notification.type === 'email_campaign') {
+        const whereClause = {};
+        if (notification.recipients === 'staff') {
+            whereClause.role = { in: ['STAFF', 'ADMIN'] };
+        } else if (notification.recipients === 'users') {
+            whereClause.role = 'USER';
+        }
+
+        const users = await prisma.user.findMany({
+            where: whereClause,
+            select: { id: true, name: true, email: true }
+        });
+
+        for (const targetUser of users) {
+            if (targetUser.email) {
+                try {
+                    await orderQueue.add('email-campaign', {
+                        email: targetUser.email,
+                        name: targetUser.name,
+                        subject: notification.subject || notification.title,
+                        body: notification.body,
+                        campaignId: notification._id.toString()
+                    });
+                    queuedCount += 1;
+                } catch (qErr) {
+                    logger.warn(`Failed to queue email campaign for ${targetUser.email}: ${qErr.message}`);
+                }
+            }
+        }
+        logger.info(`Queued ${queuedCount} campaign emails for notification ${id}`);
     }
+
+    notification.isSent = true;
+    notification.sentAt = new Date();
+    await notification.save();
+    return { ...notification.toObject(), queuedCount };
+};
 
 export const deleteNotification = async (id) => {
         const notification = await Notification.findByIdAndDelete(id);

@@ -1,10 +1,16 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import { Alert } from '@heroui/react';
 
 /**
  * AlertContext - Provides alert management functionality throughout the app
  */
 const AlertContext = createContext();
+
+let alertIdCounter = 0;
+const generateAlertId = () => {
+  alertIdCounter += 1;
+  return `alert_${alertIdCounter}`;
+};
 
 /**
  * useAlert Hook - Access alert functionality from any component
@@ -35,13 +41,21 @@ export const AlertProvider = ({ children }) => {
   const [alerts, setAlerts] = useState([]);
 
   /**
+   * Dismiss a specific alert
+   * @param {string|number} id - Alert ID to dismiss
+   */
+  const dismissAlert = useCallback((id) => {
+    setAlerts(prev => prev.filter(alert => alert.id !== id));
+  }, []);
+
+  /**
    * Show an alert message
    * @param {string} message - Alert message to display
    * @param {string} type - Alert type: 'success' | 'error' | 'info' | 'warning'
    * @param {number} duration - Auto-dismiss duration in ms (0 = no auto-dismiss)
    */
-  const showAlert = (message, type = 'info', duration = 3000) => {
-    const id = Date.now() + Math.random(); // Ensure unique ID
+  const showAlert = useCallback((message, type = 'info', duration = 3000) => {
+    const id = generateAlertId();
     setAlerts(prev => [...prev, { id, message, type }]);
     
     if (duration > 0) {
@@ -49,15 +63,7 @@ export const AlertProvider = ({ children }) => {
         dismissAlert(id);
       }, duration);
     }
-  };
-
-  /**
-   * Dismiss a specific alert
-   * @param {number} id - Alert ID to dismiss
-   */
-  const dismissAlert = (id) => {
-    setAlerts(prev => prev.filter(alert => alert.id !== id));
-  };
+  }, [dismissAlert]);
 
   return (
     <AlertContext.Provider value={{ showAlert }}>

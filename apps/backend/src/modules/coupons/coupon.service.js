@@ -88,3 +88,60 @@ export const toggleCouponStatus = async (id) => {
         data: { isActive: !coupon.isActive }
     });
 };
+
+export const validateCoupon = async (code, orderAmount = 0) => {
+    if (!code) throw new ApiError(400, 'Coupon code is required');
+
+    const coupon = await prisma.coupon.findUnique({
+        where: { code: code.trim().toUpperCase() }
+    });
+
+    if (!coupon) {
+        throw new ApiError(404, 'Invalid coupon code');
+    }
+
+    if (!coupon.isActive) {
+        throw new ApiError(400, 'This coupon is inactive');
+    }
+
+    const now = new Date();
+    if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+        throw new ApiError(400, 'This coupon promotion has not started yet');
+    }
+
+    if (new Date(coupon.validUntil) < now) {
+        throw new ApiError(400, 'This coupon has expired');
+    }
+
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+        throw new ApiError(400, 'Coupon usage limit has been reached');
+    }
+
+    const amount = Number(orderAmount) || 0;
+    if (amount < Number(coupon.minOrderAmount || 0)) {
+        throw new ApiError(400, `Minimum order amount of ₹${coupon.minOrderAmount} required for this coupon`);
+    }
+
+    let discount = 0;
+    if (coupon.discountType === 'FLAT') {
+        discount = Math.min(amount, Number(coupon.discountValue));
+    } else {
+        const raw = (amount * Number(coupon.discountValue)) / 100;
+        const cap = coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity;
+        discount = Math.min(raw, cap);
+    }
+    discount = Math.round(discount * 100) / 100;
+
+    return {
+        valid: true,
+        discount,
+        coupon: {
+            id: coupon.id,
+            code: coupon.code,
+            discountType: coupon.discountType,
+            discountValue: Number(coupon.discountValue),
+            minOrderAmount: Number(coupon.minOrderAmount),
+            maxDiscount: coupon.maxDiscount ? Number(coupon.maxDiscount) : null,
+        }
+    };
+};
